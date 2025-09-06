@@ -1,0 +1,27 @@
+// app/config/cognito-groups.ts
+export const COGNITO_GROUPS = {
+    // System Admin
+    ADMIN: 'admin',
+
+    // Level-based roles
+    ENTERPRISE: 'ENTERPRISE',
+    SEGMENT: 'SEGMENT',
+    PLATFORM: 'PLATFORM',
+    REGIONAL: 'REGIONAL',
+    
+    // Platform specific roles
+    PLATFORM_GROUP_PRESIDENT: 'PLATFORM_GROUP_PRESIDENT',
+    PLATFORM_HR: 'PLATFORM_HR',
+    
+    // Division level roles
+    DIVISION_HR_DIRECTOR: 'DIVISION_HR_DIRECTOR',
+    DIVISION_VP_GM_BUM: 'DIVISION_VP_GM_BUM',
+    DIVISION_OPS_DIRECTOR: 'DIVISION_OPS_DIRECTOR',
+    DIVISION_PLANT_MANAGER: 'DIVISION_PLANT_MANAGER',
+    DIVISION_PLANT_HR: 'DIVISION_PLANT_HR',
+    DIVISION_SAFETY: 'DIVISION_SAFETY_LEADER',
+
+    //HR
+    HR: 'hr'
+  };
+  

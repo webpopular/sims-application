@@ -1,0 +1,611 @@
+/* app/globals.css */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+ 
+:root { /* Background color for the application */
+  --sidebar-bg: #F5F5F5; /* Background color for the sidebar */
+  --maroon: #b22222; /* Primary maroon color */
+  --text-primary: #333333; /* Primary text color */
+  --text-hover: #FFFFFF; /* Text color on hover */
+  --border-radius: 8px; /* Default border radius for rounded corners */
+  --header-height: 4rem; /* Header height */
+  --sidebar-width: 18rem; /* Adjusted sidebar width */
+}
+
+/* Body */
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* Primary font */
+  background-color: var(--background);
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden; /* Prevent horizontal scrolling */
+}
+
+/* Sidebar */
+.sidebar {
+  width: var(--sidebar-width); /* Sidebar width from root variable */
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  background-color: var(--sidebar-bg);
+  overflow-y: auto;
+  z-index: 20;
+}
+
+ 
+
+
+/* Header */
+.header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%; /* Span full width */
+  height: var(--header-height);
+  z-index: 10;
+  background-color: white;
+  border-bottom: 1px solid #e5e5e5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1rem;
+  
+}
+
+
+.headerx {
+  @apply bg-white shadow-sm fixed left-64 top-0 w-[calc(100%-16rem)] z-10;
+  border-bottom: 1px solid #E5E5E5; /* Border for separation */
+}
+
+.header-container {
+  @apply max-w-6xl mx-auto h-16 flex items-center justify-between px-6;
+}
+
+.header-title {
+  @apply text-lg font-semibold text-gray-900;
+}
+
+/* Main Content */
+.main-contentxx {
+  @apply ml-64 mt-[4.5rem] max-w-7xl mx-auto px-1; /* Aligns with sidebar and header */
+}
+
+.main-contentxxx {
+  @apply ml-64 mt-[2.5rem] max-w-5xl mx-auto px-2;
+  width: 100%; /* Ensure it stretches fully within the viewport */
+}
+/* Main Content */
+.main-content {
+  margin-left: var(--sidebar-width); /* Matches sidebar width */
+  margin-top: var(--header-height); /* Adjust for header height */
+  padding: 1rem;
+  width: calc(100% - var(--sidebar-width));
+  overflow-x: hidden; /* Prevent horizontal scrolling */
+}
+
+
+/* Main Content */
+.main-contentxxxx {
+  margin-left: 22rem; /* Sidebar width */
+  padding-top: 4rem; /* Header height */
+  overflow-x: hidden; /* Prevent horizontal scrolling */
+}
+/* Main Content */
+.main-contentxxxx {
+  margin-left: var(--sidebar-width); /* Matches sidebar width */
+  margin-top: var(--header-height); /* Adjust for header height */
+  padding: 1rem;
+  width: calc(100% - var(--sidebar-width));
+  overflow-x: hidden; /* Prevent horizontal scrolling */
+}
+ 
+
+.content-wrapperxxxx {
+  @apply bg-white shadow rounded-lg p-6;
+  max-width: 100%; /* Allow it to stretch fully inside the parent */
+  width: calc(100% - 2rem); /* Ensures padding/margin doesn't constrain the width */
+  margin: 0 auto; /* Center the wrapper */
+}
+
+.content-wrapper {
+  max-width: 100%; /* Ensure it stretches fully */
+  padding: 0.1rem;
+  border-radius: var(--radius); /* Adds rounded corners */
+  width: calc(100% - var(--sidebar-width));
+}
+
+.content-wrapperX {
+  background: white; /* Optional: background color for contrast */
+  border-radius: var(--radius); /* Adds rounded corners */
+  padding: 1rem; /* Adds padding around the iframe */
+}
+
+
+/* Footer */
+.footer {
+  @apply max-w-6xl mx-auto px-6 py-4 text-sm text-gray-600 border-t;
+}
+
+
+/* Sidebar Header Style */
+.header-item {
+  position: relative;
+  font-size: 0.875rem; /* Header font size */
+  font-weight: 600;
+  color: #6b7280; /* Gray color */
+  text-transform: uppercase;
+  padding-left: 0.75rem; /* Indent header */
+  margin-bottom: 0.5rem; /* Space between header and items */
+
+  /* Vertical line for grouping */
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0.75rem; /* Align with header text */
+    top: 1.5rem; /* Start after the header */
+    height: 100%; /* Stretch for grouped items */
+    width: 1px; /* Thin vertical line */
+    background-color: #d1d5db; /* Light gray */
+  }
+}
+
+
+
+
+
+
+
+
+/* Utility */
+.text-sm {
+  font-size: 0.875rem;
+}
+
+.text-xs {
+  font-size: 0.75rem;
+}
+
+
+.custom-iframe-widthx {
+  width: 80%;
+  height: 100%;
+  max-width: 1000px; /* Maximum width to prevent overstretching */
+  min-width: 800px;  /* Minimum width for readability */
+  margin: 0 auto;    /* Center the iframe horizontally */
+  display: block;    /* Ensures proper rendering */
+}
+
+.custom-iframe {
+  width: 90%; /* Occupy 90% of the available width */
+  height: 90vh; /* Occupy 90% of the viewport height */
+  max-width: 1200px; /* Limit to a reasonable maximum width */
+  min-width: 768px; /* Set a minimum width for usability */
+  margin: 0 auto; /* Center horizontally */
+  display: block; /* Ensure block layout */
+}
+
+
+@layer base {
+  :root {
+  --background: 0 0% 100%;
+  --foreground: 0 0% 3.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 3.9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 3.9%;
+  --primary: 0 0% 9%;
+  --primary-foreground: 0 0% 98%;
+  --secondary: 0 0% 96.1%;
+  --secondary-foreground: 0 0% 9%;
+  --muted: 0 0% 96.1%;
+  --muted-foreground: 0 0% 45.1%;
+  --accent: 0 0% 96.1%;
+  --accent-foreground: 0 0% 9%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 0 0% 89.8%;
+  --input: 0 0% 89.8%;
+  --ring: 0 0% 3.9%;
+  --chart-1: 12 76% 61%;
+  --chart-2: 173 58% 39%;
+  --chart-3: 197 37% 24%;
+  --chart-4: 43 74% 66%;
+  --chart-5: 27 87% 67%;
+  --radius: 0.5rem;
+ }
+  .dark {
+  --background: 0 0% 3.9%;
+  --foreground: 0 0% 98%;
+  --card: 0 0% 3.9%;
+  --card-foreground: 0 0% 98%;
+  --popover: 0 0% 3.9%;
+  --popover-foreground: 0 0% 98%;
+  --primary: 0 0% 98%;
+  --primary-foreground: 0 0% 9%;
+  --secondary: 0 0% 14.9%;
+  --secondary-foreground: 0 0% 98%;
+  --muted: 0 0% 14.9%;
+  --muted-foreground: 0 0% 63.9%;
+  --accent: 0 0% 14.9%;
+  --accent-foreground: 0 0% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 0 0% 14.9%;
+  --input: 0 0% 14.9%;
+  --ring: 0 0% 83.1%;
+  --chart-1: 220 70% 50%;
+  --chart-2: 160 60% 45%;
+  --chart-3: 30 80% 55%;
+  --chart-4: 280 65% 60%;
+  --chart-5: 340 75% 55%;
+ }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+ }
+  body {
+    @apply bg-background text-foreground;
+ }
+}
+
+
+
+/* Modal Button Styles */
+.modal-button {
+  @apply transition-all duration-300 ease-in-out;
+}
+
+/* Primary Modal Buttons (Red) */
+.modal-button-primary {
+  @apply px-4 py-2 bg-[#cb4154] text-white rounded transition-all duration-300 ease-in-out;
+}
+
+.modal-button-primary:hover {
+  @apply bg-[#8b1a1a] transform -translate-y-0.5 shadow-md;
+}
+
+
+/* Primary Modal Buttons (Blue) */
+.modal-button-primary-reco {
+  @apply px-4 py-2 bg-[#323fcb] text-white rounded transition-all duration-300 ease-in-out;
+}
+
+.modal-button-primary-reco:hover {
+  @apply bg-[#341bc1] transform -translate-y-0.5 shadow-md;
+}
+
+
+/* Primary Button - Next Step */
+.modal-button-primaryxx {
+  @apply px-4 py-2 bg-[#cb4154] text-white rounded transition-all duration-300 ease-in-out;
+}
+
+.modal-button-primaryxx:hover {
+  @apply bg-[#8b1a1a] transform -translate-y-0.5 shadow-md;
+}
+
+/* Update Form Button */
+.modal-button-update {
+  @apply px-4 py-2 bg-[#b9e2ff] text-black rounded transition-all duration-300 ease-in-out;
+}
+
+.modal-button-update:hover {
+  @apply bg-[#85c7f2] transform -translate-y-0.5 shadow-md;
+}
+
+/* Reject Button */
+.modal-button-reject {
+  @apply px-4 py-2 bg-[#28be8e] text-white rounded transition-all duration-300 ease-in-out;
+}
+
+.modal-button-reject:hover {
+  @apply bg-[#1f9b72] transform -translate-y-0.5 shadow-md;
+}
+
+
+/* Secondary Modal Buttons (Gray) */
+.modal-button-secondary {
+  @apply px-4 py-2 bg-[#6c757d] text-white rounded transition-all duration-300 ease-in-out;
+}
+
+.modal-button-secondary:hover {
+  @apply bg-[#5a6268] transform -translate-y-0.5 shadow-md;
+}
+
+/* Outline Modal Buttons */
+.modal-button-outline {
+  @apply px-4 py-2 border border-[#6c757d] rounded transition-all duration-300 ease-in-out;
+}
+
+.modal-button-outline:hover {
+  @apply bg-gray-50 transform -translate-y-0.5 shadow-md;
+}
+
+
+/* In app/globals.css */
+
+/* Form Layout and Container */
+.form-container {
+  @apply w-full max-w-5xl mx-auto bg-white rounded-lg shadow-sm p-8;
+}
+
+
+/* Form Section Headers */
+.form-header {
+  @apply text-xl font-semibold text-[#b22222] border-l-4 border-[#b22222] pl-3 mb-6;
+}
+
+/* Form Grid Layout */
+.form-grid {
+  @apply grid grid-cols-1 md:grid-cols-2 gap-8;
+}
+
+/* Form Section */
+.form-section {
+  @apply space-y-6;
+}
+
+/* Form Group Wrapper */
+.form-group {
+  @apply mb-6 relative;
+}
+
+/* Form Labels */
+.form-label {
+  @apply block tracking-wide text-gray-700 text-xs font-bold mb-2;
+}
+
+
+/* Form Inputs */
+.form-input {
+  @apply w-full px-4 py-2.5 bg-white border border-gray-300 rounded-md shadow-sm
+  transition-all duration-200
+  hover:border-gray-400
+  focus:outline-none focus:ring-2 focus:ring-[#b22222]/20 focus:border-[#b22222];
+}
+
+/* Form Inputs Recognition*/
+.form-input-reco {
+  @apply w-full px-4 py-2.5 bg-white border border-gray-300 rounded-md shadow-sm
+  transition-all duration-200
+  hover:border-gray-200
+  focus:outline-none focus:ring-2 focus:ring-[#e7fff9]/20 focus:border-[#85d3e7];
+}
+
+/* Form Select */
+.form-select {
+  @apply w-full px-4 py-2.5 bg-white border border-gray-300 rounded-md shadow-sm appearance-none
+  transition-all duration-200
+  hover:border-gray-400
+  focus:outline-none focus:ring-2 focus:ring-[#b22222]/20 focus:border-[#b22222];
+}
+
+/* Add a wrapper class for the select to show the dropdown arrow */
+.select-wrapper {
+  @apply relative;
+}
+
+.select-wrapper::after {
+  content: '';
+  @apply absolute right-3 top-1/2 -translate-y-1/2 w-0 h-0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 5px solid #6b7280;
+  pointer-events: none;
+}
+
+/* Form Textarea */
+.form-textarea {
+  @apply w-full px-4 py-2.5 bg-white border border-gray-300 rounded-md shadow-sm resize-none
+  transition-all duration-200
+  hover:border-gray-400
+  focus:outline-none focus:ring-2 focus:ring-[#b22222]/20 focus:border-[#b22222];
+}
+
+/* Form Actions */
+.form-actions {
+  @apply flex justify-end gap-4 pt-6 border-t mt-8;
+}
+
+/* Form Submit Button */
+.form-submit {
+  @apply px-6 py-2.5 bg-[#b22222] text-white rounded hover:bg-[#8b1a1a] transition-colors duration-200;
+}
+
+/* Form Cancel Button */
+.form-cancel {
+  @apply px-6 py-2.5 border-2 border-gray-300 text-gray-700 rounded hover:bg-gray-100 transition-colors duration-200;
+}
+
+/* Error Message */
+.form-error {
+  @apply text-red-500 text-xs mt-1;
+}
+
+
+/* Primary Button */
+.btn-primary {
+  @apply px-6 py-2.5 bg-[#b22222] text-white rounded-md shadow-sm
+  transition-all duration-200
+  hover:bg-[#8b1a1a] hover:transform hover:-translate-y-0.5
+  focus:outline-none focus:ring-2 focus:ring-[#b22222]/50;
+}
+
+/* Secondary Button */
+.btn-secondary {
+  @apply px-6 py-2.5 border border-gray-300 text-gray-700 rounded-md shadow-sm
+  transition-all duration-200
+  hover:bg-gray-50 hover:transform hover:-translate-y-0.5
+  focus:outline-none focus:ring-2 focus:ring-gray-200;
+}
+
+/*
+.modal-button {
+  @apply px-6 py-2 rounded font-medium;
+}
+
+.modal-button-primary {
+  @apply bg-[#b22222] text-white hover:bg-[#8b1a1a];
+}
+
+.modal-button-secondary {
+  @apply bg-[#6c757d] text-white hover:bg-[#5a6268];
+}
+*/
+
+
+.custom-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 1px solid #800000;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+.custom-checkbox:checked {
+  background-color: #800000;
+  position: relative;
+}
+
+.custom-checkbox:checked::before {
+  content: '\2714';
+  font-size: 12px;
+  color: white;
+  position: absolute;
+  right: 1px;
+  top: -1px;
+}
+
+.custom-checkbox:focus {
+  box-shadow: 0 0 0 2px rgba(128, 0, 0, 0.2);
+}
+
+.custom-radio {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  width: 1.25em;
+  height: 1.25em;
+  border: 2px solid #800000;
+  border-radius: 50%;
+  outline: none;
+  cursor: pointer;
+}
+
+.custom-radio:checked {
+  background-color: #800000;
+  position: relative;
+}
+
+.custom-radio:checked::before {
+  content: '';
+  position: absolute;
+  width: 0.5em;
+  height: 0.5em;
+  background-color: white;
+  border-radius: 50%;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.custom-radio:focus {
+  box-shadow: 0 0 0 3px rgba(128, 0, 0, 0.3);
+}
+
+
+.status-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  margin-right: 4px;
+}
+
+.status-yet-to-begin {
+  background-color: #f3f4f6;
+  color: #4b5563;
+}
+
+.status-in-progress {
+  background-color: #e1f0ff;
+  color: #1e40af;
+}
+
+.status-completed {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.status-sent-back {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.status-group {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.status-date {
+  font-size: 12px;
+  color: #6b7280;
+  margin-left: 8px;
+}
+
+/* card-based styling*/
+.card-container {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  margin-bottom: 16px;
+  transition: box-shadow 0.3s ease;
+}
+
+.card-header {
+  background-color: #ffd08033;
+  padding: 8px 16px; 
+  border-bottom: 1px snow #e5e7eb;
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+  font-weight: 500;
+}
+
+.card-body {
+  padding: 12px;
+}
+
+.table-container {
+  overflow-x: auto;
+  max-height: calc(100vh - 300px);
+  width: 100%;
+  display: block;
+}
+
+.table-container table {
+  min-width: 1200px;
+  white-space: nowrap;
+  width: 100%;
+  table-layout: fixed;
+}
+
+/* Add this to ensure table cells don't wrap */
+.table-container th,
+.table-container td {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
