@@ -2,12 +2,8 @@
 'use client';
 
 import { createContext, useContext, type ReactNode } from 'react';
-import { Amplify } from 'aws-amplify';
-import config from '@/amplify_outputs.json';
+import '@/app/amplify-config';
 
-Amplify.configure(config);
- 
-// Define the auth context type interface
 interface AuthContextType {
   isAuthenticated: boolean;
   loading: boolean;
