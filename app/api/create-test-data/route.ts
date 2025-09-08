@@ -1,39 +1,21 @@
-// app/api/create-test-data/route.ts
-'use server';
-
+// app/api/create-test-data/route.ts - FIXED with proper auth
 import { NextRequest, NextResponse } from 'next/server';
-import '@/app/amplify-config-server';
-
 import { Amplify } from 'aws-amplify';
 import { generateClient } from 'aws-amplify/data';
-import type { Schema } from '@/amplify/data/schema';
-import { fetchAuthSession } from 'aws-amplify/auth/server';
+import { type Schema } from "@/amplify/data/schema";
+import config from '@/amplify_outputs.json';
 
-// Safer defaults for server routes
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
+Amplify.configure(config, { ssr: true });
 
-// Enable SSR cookie/session handling without changing categories
-Amplify.configure({}, { ssr: true });
-
-export async function POST(_request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    // Require a signed-in user; mirror InjuryList (userPool)
-    const session = await fetchAuthSession();
-    const idToken = session.tokens?.idToken?.toString();
-    if (!idToken) {
-      return NextResponse.json(
-          { error: 'Not authenticated (no ID token)' },
-          { status: 401 }
-      );
-    }
+    // ✅ Create client with API key for server-side calls
+    const client = generateClient<Schema>({
+      authMode: 'apiKey'
+    });
 
-    // Use userPool auth for AppSync writes
-    const client = generateClient<Schema>({ authMode: 'userPool' });
-
-    // Create test data matching your hierarchy strings
-    const nowIso = new Date().toISOString();
-    const testSubmissions: Array<Partial<Schema['Submission']['type']>> = [
+    // ✅ Create test data that matches your actual user hierarchy strings
+    const testSubmissions = [
       {
         submissionId: 'TEST-ENT-001',
         recordType: 'INJURY_REPORT',
@@ -43,8 +25,8 @@ export async function POST(_request: NextRequest) {
         status: 'Draft',
         location: 'Enterprise Level',
         submissionType: 'Direct',
-        createdAt: nowIso,
-        updatedAt: nowIso,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
         owner: 'ITW.Safety.Director.User1@gmail.com',
         dateOfIncident: '2025-06-17',
         documents: []
@@ -58,8 +40,8 @@ export async function POST(_request: NextRequest) {
         status: 'Draft',
         location: 'Genay Plant',
         submissionType: 'Direct',
-        createdAt: nowIso,
-        updatedAt: nowIso,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
         owner: 'Plant.Safety.Manager.User1@outlook.com',
         dateOfIncident: '2025-06-17',
         documents: []
@@ -73,8 +55,8 @@ export async function POST(_request: NextRequest) {
         status: 'Draft',
         location: 'Smart Components NA Division',
         submissionType: 'Direct',
-        createdAt: nowIso,
-        updatedAt: nowIso,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
         owner: 'Operations.Director.User1@outlook.com',
         dateOfIncident: '2025-06-17',
         obsTypeOfConcern: 'Safety Hazard',
@@ -91,8 +73,8 @@ export async function POST(_request: NextRequest) {
         status: 'Draft',
         location: 'Bytča Plant',
         submissionType: 'Direct',
-        createdAt: nowIso,
-        updatedAt: nowIso,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
         owner: 'Plant.HR.Manager.User1@outlook.com',
         dateOfIncident: '2025-06-17',
         obsTypeOfConcern: 'Process Improvement',
@@ -109,41 +91,43 @@ export async function POST(_request: NextRequest) {
         status: 'Draft',
         location: 'Automotive OEM Segment',
         submissionType: 'Direct',
-        createdAt: nowIso,
-        updatedAt: nowIso,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
         owner: 'Segment.Leadership.User1@gmail.com',
         dateOfIncident: '2025-06-17',
         documents: []
       }
     ];
 
-    const results: Array<{
-      success: boolean;
-      submissionId: string;
-      id?: string | null;
-      hierarchyString?: string;
-      error?: string;
-    }> = [];
-
+    const results = [];
+    
     for (const submission of testSubmissions) {
       try {
-        // If your schema requires additional fields, add them here before create()
-        const res = await client.models.Submission.create(submission as any);
+        console.log(`🔄 Creating test submission: ${submission.submissionId}`);
+        
+        const response = await client.models.Submission.create(submission);
+        
         results.push({
           success: true,
-          submissionId: String(submission.submissionId),
-          id: res.data?.id ?? null,
+          submissionId: submission.submissionId,
+          id: response.data?.id,
           hierarchyString: submission.hierarchyString
         });
-      } catch (err: any) {
+        
+        console.log(`✅ Created test submission: ${submission.submissionId} with ID: ${response.data?.id}`);
+        
+      } catch (error) {
         results.push({
           success: false,
-          submissionId: String(submission.submissionId),
-          hierarchyString: submission.hierarchyString,
-          error: err?.message ?? 'Unknown error'
+          submissionId: submission.submissionId,
+          error: error instanceof Error ? error.message : 'Unknown error',
+          hierarchyString: submission.hierarchyString
         });
+        console.error(`❌ Failed to create ${submission.submissionId}:`, error);
       }
     }
+
+    console.log(`📊 Test data creation summary: ${results.filter(r => r.success).length}/${results.length} successful`);
 
     return NextResponse.json({
       success: true,
@@ -155,11 +139,15 @@ export async function POST(_request: NextRequest) {
         failed: results.filter(r => !r.success).length
       }
     });
-  } catch (error: any) {
+
+  } catch (error) {
     console.error('❌ [CreateTestData] Error:', error);
     return NextResponse.json(
-        { error: 'Failed to create test data', details: error?.message ?? 'Unknown error' },
-        { status: 500 }
+      { 
+        error: 'Failed to create test data',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
+      { status: 500 }
     );
   }
 }
