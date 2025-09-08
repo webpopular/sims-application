@@ -1,7 +1,7 @@
 // app/amplify-init.ts
 'use client';
 import { Amplify } from 'aws-amplify';
-import { amplifyConfig } from '@/app/config/amplify-config';
+import { amplifyConfig } from '@/app/amplify-config';
 
 let configured = false;
 export function initAmplify() {

@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server';
 
 // ✅ Initialize Amplify once from envs (no outputs.json here)
-import '@/app/lib/amplify-config-universal';
+import '@/app/amplify-config-server';
 
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '@/amplify/data/schema';

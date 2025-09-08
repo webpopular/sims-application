@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { SMARTSHEET_CONFIG, SheetType } from '../config';
 
 // ✅ Initialize Amplify (env-driven) once for server usage of generateClient
-import '@/app/lib/amplify-config-universal';
+import '@/app/amplify-config-server';
 
 import { generateClient } from 'aws-amplify/api';
 import type { Schema } from '../../../../amplify/data/schema';

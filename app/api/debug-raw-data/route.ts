@@ -4,7 +4,7 @@
 import { NextResponse } from 'next/server';
 
 // Init Amplify from env-driven config (no outputs.json)
-import '@/app/lib/amplify-config-universal';
+import '@/app/amplify-config-server';
 
 import { Amplify } from 'aws-amplify';
 import { generateClient } from 'aws-amplify/data';

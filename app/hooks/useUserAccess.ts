@@ -79,9 +79,17 @@ export function useUserAccess(): UseUserAccessResult {
       setError(null);
 
       console.log(`🔍 [useUserAccess] Getting access for: ${user.signInDetails.loginId}`);
-      
-      // ✅ Use client-side service instead of API route
-      const serviceUserAccess = await getCachedUserAccess(user.signInDetails.loginId);
+
+      // Try server route first (more permissive); fallback to client service
+      const apiResp = await fetch(`/api/user-access?email=${encodeURIComponent(user.signInDetails.loginId)}`, { cache: 'no-store' });
+      let serviceUserAccess = null;
+      if (apiResp.ok) {
+        const json = await apiResp.json();
+        if (json.ok && json.user) serviceUserAccess = json.user;
+        }
+      if (!serviceUserAccess) {
+        serviceUserAccess = await getCachedUserAccess(user.signInDetails.loginId);
+      }
 
       if (!serviceUserAccess) {
         throw new Error('No user access data found');

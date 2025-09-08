@@ -2,7 +2,7 @@
 'use server';
 
 import { NextResponse } from 'next/server';
-import '@/app/lib/amplify-config-universal';
+import '@/app/amplify-config-server';
 
 import { Amplify } from 'aws-amplify';
 import { generateClient } from 'aws-amplify/data';
