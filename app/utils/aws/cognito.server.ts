@@ -1,54 +1,69 @@
+
+// app/utils/aws/cognito.server.ts
+// app/utils/aws/cognito.server.ts
 'use server';
 
-import { CognitoIdentityProviderClient, ListUsersCommand } from '@aws-sdk/client-cognito-identity-provider';
+import { CognitoIdentityProviderClient, ListUsersCommand } from "@aws-sdk/client-cognito-identity-provider";
 
 export const searchCognitoUsers = async (query: string) => {
   try {
-    // Region: server-only first; no defaulting to client envs
-    const region =
-        process.env.AWS_REGION ||
-        process.env.MY_AWS_REGION ||
-        'us-east-1';
+    // ✅ Region fallback
+    const region = process.env.MY_AWS_REGION
+      || process.env.AWS_REGION
+      || process.env.NEXT_PUBLIC_AWS_REGION
+      || 'us-east-1';
 
-    // User Pool ID: server-only name; (optionally allow NEXT_PUBLIC_* as last resort)
-    const userPoolId =
-        process.env.COGNITO_USER_POOL_ID ||
-        process.env.MY_COGNITO_USER_POOL_ID ||
-        process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID;
+    // ✅ Access Key fallback
+    const accessKeyId = process.env.MY_AWS_ACCESS_KEY_ID
+      || process.env.AWS_ACCESS_KEY_ID
+      || process.env.NEXT_PUBLIC_AWS_ACCESS_KEY_ID;
 
-    if (!userPoolId) {
-      throw new Error('Missing COGNITO_USER_POOL_ID');
+    // ✅ Secret Access Key fallback
+    const secretAccessKey = process.env.MY_AWS_SECRET_ACCESS_KEY
+      || process.env.AWS_SECRET_ACCESS_KEY
+      || process.env.NEXT_PUBLIC_AWS_SECRET_ACCESS_KEY;
+
+    // ✅ User Pool ID fallback
+    const userPoolId = process.env.MY_COGNITO_USER_POOL_ID
+      || process.env.AWS_COGNITO_USER_POOL_ID
+      || process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID;
+
+    // ✅ Validate
+    if (!accessKeyId || !secretAccessKey || !userPoolId) {
+      console.error('❌ Missing AWS credentials or Cognito User Pool ID in environment variables.');
+      console.error('accessKeyId:', accessKeyId);
+      console.error('secretAccessKey:', secretAccessKey ? 'Provided' : 'Missing');
+      console.error('userPoolId:', userPoolId);
+      return [];
     }
 
-    // Credentials:
-    // Prefer role-based creds (no explicit creds). If keys are provided, use them.
-    const accessKeyId = process.env.AWS_ACCESS_KEY_ID || process.env.MY_AWS_ACCESS_KEY_ID;
-    const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY || process.env.MY_AWS_SECRET_ACCESS_KEY;
+    console.log('✅ Using Cognito Config:');
+    console.log('Region:', region);
+    console.log('User Pool ID:', userPoolId);
 
-    const client = new CognitoIdentityProviderClient({
+    const cognitoClient = new CognitoIdentityProviderClient({
       region,
-      ...(accessKeyId && secretAccessKey
-          ? { credentials: { accessKeyId, secretAccessKey } }
-          : {}), // let SDK use the runtime role if keys are not set
+      credentials: {
+        accessKeyId,
+        secretAccessKey,
+      },
     });
 
-    const cmd = new ListUsersCommand({
+    const command = new ListUsersCommand({
       UserPoolId: userPoolId,
-      // Optional: only add filter when query length is reasonable
-      ...(query?.length ? { Filter: `email ^= "${query}"` } : {}),
+      Filter: `email ^= "${query}"`,
       Limit: 10,
     });
 
-    const res = await client.send(cmd);
+    const response = await cognitoClient.send(command);
 
-    return (
-        res.Users?.map(u => ({
-          username: u.Username || '',
-          email: u.Attributes?.find(a => a.Name === 'email')?.Value || '',
-        })) || []
-    );
-  } catch (err) {
-    console.error('searchCognitoUsers error:', err);
+    return response.Users?.map(user => ({
+      username: user.Username || '',
+      email: user.Attributes?.find(attr => attr.Name === 'email')?.Value || '',
+    })) || [];
+
+  } catch (error) {
+    console.error('❌ Error searching users:', error);
     return [];
   }
 };
