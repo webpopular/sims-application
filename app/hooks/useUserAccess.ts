@@ -4,6 +4,8 @@
 import { useState, useEffect } from 'react';
 import { useAuthenticator } from '@aws-amplify/ui-react';
 import { getCachedUserAccess, type UserAccess as ServiceUserAccess } from '@/lib/services/userAccessService';
+import {fetchAuthSession} from "aws-amplify/auth";
+import {callAppSync, getIdTokenOrThrow} from "@/lib/utils/appSync";
 
 export interface UserPermissions {
   canReportInjury: boolean;
@@ -61,136 +63,112 @@ interface UseUserAccessResult {
   hasAccessToHierarchy: (hierarchy: string) => boolean;
 }
 
-export function useUserAccess(): UseUserAccessResult {
+export function useUserAccess() {
   const { user } = useAuthenticator();
-  const [userAccess, setUserAccess] = useState<UserAccess | null>(null);
+  const [userAccess, setUserAccess] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchUserAccess = async () => {
-    if (!user?.signInDetails?.loginId) {
-      setLoading(false);
-      setError('No user email found');
-      return;
-    }
-
+    const email = user?.signInDetails?.loginId;
+    if (!email) { setLoading(false); setError('No user email found'); return; }
     try {
       setLoading(true);
       setError(null);
 
-      console.log(`🔍 [useUserAccess] Getting access for: ${user.signInDetails.loginId}`);
+      const { payload } = await getIdTokenOrThrow();
+      console.log('[token_use]', payload.token_use); // "id"
+      console.log('[iss]', payload.iss);
+      console.log('[aud]', payload.aud);
 
-      // Try server route first (more permissive); fallback to client service
-      const apiResp = await fetch(`/api/user-access?email=${encodeURIComponent(user.signInDetails.loginId)}`, { cache: 'no-store' });
-      let serviceUserAccess = null;
-      if (apiResp.ok) {
-        const json = await apiResp.json();
-        if (json.ok && json.user) serviceUserAccess = json.user;
+      if (process.env.NODE_ENV === 'development') {
+        // --- try PK first ---
+        const getRes = await callAppSync(
+            `query Get($email: ID!) {
+       getUserRole(email: $email) {
+         email name roleTitle level
+         enterprise segment platform division plant
+         hierarchyString cognitoGroups isActive
+       }
+     }`,
+            { email }
+        );
+
+        let row = getRes?.data?.getUserRole ?? null;
+
+        // --- optional fallback: scan with larger limit ---
+        if (!row) {
+          const listRes = await callAppSync(
+              `query List($email: String!, $limit: Int) {
+         listUserRoles(filter: { email: { eq: $email } }, limit: $limit) {
+           items {
+             email name roleTitle level
+             enterprise segment platform division plant
+             hierarchyString cognitoGroups isActive
+           }
+         }
+       }`,
+              { email, limit: 1000 }
+          );
+          row = listRes?.data?.listUserRoles?.items?.[0] ?? null;
         }
-      if (!serviceUserAccess) {
-        serviceUserAccess = await getCachedUserAccess(user.signInDetails.loginId);
+
+        if (!row) throw new Error('No user access data found');
+
+        setUserAccess({
+          email: row.email,
+          name: row.name,
+          roleTitle: row.roleTitle,
+          enterprise: row.enterprise,
+          segment: row.segment,
+          platform: row.platform,
+          division: row.division,
+          plant: row.plant,
+          hierarchyString: row.hierarchyString,
+          level: row.level,
+          cognitoGroups: row.cognitoGroups,
+          isActive: row.isActive,
+          permissions: row.permissions,
+          accessScope: row.accessScope,
+        });
       }
-
-      if (!serviceUserAccess) {
-        throw new Error('No user access data found');
-      }
-
-      // ✅ FIXED: Convert service response to hook format without accessibleHierarchies
-      const hookUserAccess: UserAccess = {
-        email: serviceUserAccess.email,
-        name: serviceUserAccess.name,
-        roleTitle: serviceUserAccess.roleTitle,
-        enterprise: serviceUserAccess.enterprise,
-        segment: serviceUserAccess.segment,
-        platform: serviceUserAccess.platform,
-        division: serviceUserAccess.division,
-        plant: serviceUserAccess.plant,
-        hierarchyString: serviceUserAccess.hierarchyString,
-        level: serviceUserAccess.level,
-        cognitoGroups: serviceUserAccess.cognitoGroups,
-        isActive: serviceUserAccess.isActive,
-        permissions: serviceUserAccess.permissions,
-        accessScope: serviceUserAccess.accessScope
-      };
-
-      setUserAccess(hookUserAccess);
-      console.log(`✅ [useUserAccess] Successfully loaded user access:`, {
-        email: hookUserAccess.email,
-        roleTitle: hookUserAccess.roleTitle,
-        level: hookUserAccess.level,
-        accessScope: hookUserAccess.accessScope,
-        plant: hookUserAccess.plant,
-        hierarchyString: hookUserAccess.hierarchyString
-      });
-
-    } catch (err) {
-      console.error('❌ [useUserAccess] Error fetching user access:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error');
+    } catch (e: any) {
+      console.error('[useUserAccess] error:', e);
+      setError(e?.message || 'Unknown error');
       setUserAccess(null);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchUserAccess();
-  }, [user?.signInDetails?.loginId]);
+  useEffect(() => { fetchUserAccess(); }, [user?.signInDetails?.loginId]);
 
-  // ✅ Safe helper functions
-  const hasPermission = (permission: keyof UserPermissions): boolean => {
-    return userAccess?.permissions?.[permission] === true;
-  };
-
-  // ✅ canPerformAction method for PermissionGate compatibility
-  const canPerformAction = (permission: string): boolean => {
-    if (!userAccess) return false;
-    return userAccess.permissions?.[permission as keyof UserPermissions] === true;
-  };
-
-  // ✅ FIXED: hasAccessToHierarchy method using hierarchyString instead of accessibleHierarchies
-  const hasAccessToHierarchy = (hierarchy: string): boolean => {
-    if (!userAccess) return false;
-    
-    switch (userAccess.accessScope) {
-      case 'ENTERPRISE':
-        return true; // Enterprise users have access to all hierarchies
-      case 'SEGMENT':
-        // Check if the hierarchy starts with the user's segment
-        return hierarchy.startsWith(`ITW>${userAccess.segment}>`);
-      case 'PLATFORM':
-        // Check if the hierarchy starts with the user's platform path
-        return hierarchy.startsWith(`ITW>${userAccess.segment}>${userAccess.platform}>`);
-      case 'DIVISION':
-        // Check if the hierarchy starts with the user's division path
-        return hierarchy.startsWith(`ITW>${userAccess.segment}>${userAccess.platform}>${userAccess.division}>`);
-      case 'PLANT':
-        // Plant users can only access their exact hierarchy
-        return hierarchy === userAccess.hierarchyString;
-      default:
-        return false;
-    }
-  };
-
-  const isReady = !loading && !error && userAccess !== null;
-
-  const getUserInfo = () => ({
-    name: userAccess?.name || 'Unknown User',
-    email: userAccess?.email || 'unknown@email.com',
-    roleTitle: userAccess?.roleTitle || 'Unknown Role',
-    level: userAccess?.level || 5,
-    hierarchyString: userAccess?.hierarchyString || '',
-    accessScope: userAccess?.accessScope || 'PLANT'
-  });
-
+  // ...return the same shape you already had
   return {
-    userAccess,
-    loading,
-    error,
+    userAccess, loading, error,
     refetch: fetchUserAccess,
-    hasPermission,
-    isReady,
-    getUserInfo,
-    canPerformAction,
-    hasAccessToHierarchy
+    hasPermission: (p: any) => !!userAccess?.permissions?.[p],
+    isReady: !loading && !error && !!userAccess,
+    getUserInfo: () => ({
+      name: userAccess?.name || 'Unknown User',
+      email: userAccess?.email || '',
+      roleTitle: userAccess?.roleTitle || 'Unknown Role',
+      level: userAccess?.level || 5,
+      hierarchyString: userAccess?.hierarchyString || '',
+      accessScope: userAccess?.accessScope || 'PLANT',
+    }),
+    canPerformAction: (p: string) => !!userAccess?.permissions?.[p as any],
+    hasAccessToHierarchy: (h: string) => {
+      const ua = userAccess;
+      if (!ua) return false;
+      switch (ua.accessScope) {
+        case 'ENTERPRISE': return true;
+        case 'SEGMENT':   return h.startsWith(`ITW>${ua.segment}>`);
+        case 'PLATFORM':  return h.startsWith(`ITW>${ua.segment}>${ua.platform}>`);
+        case 'DIVISION':  return h.startsWith(`ITW>${ua.segment}>${ua.platform}>${ua.division}>`);
+        case 'PLANT':     return h === ua.hierarchyString;
+        default: return false;
+      }
+    },
   };
 }

@@ -6,11 +6,6 @@ import { SMARTSHEET_CONFIG, SheetType } from '../config';
 import { CloudWatchLogsClient, CreateLogGroupCommand, CreateLogStreamCommand, PutLogEventsCommand } from "@aws-sdk/client-cloudwatch-logs";
 import { DynamoDBClient, ListTablesCommand } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, PutCommand } from "@aws-sdk/lib-dynamodb";
-import { Amplify } from 'aws-amplify';
-import config from '@/amplify_outputs.json';
-
-// Configure Amplify
-Amplify.configure(config);
 
 // Initialize CloudWatch client
 const cloudWatchClient = new CloudWatchLogsClient({});

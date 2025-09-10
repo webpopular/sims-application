@@ -39,6 +39,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const user = await getCurrentUser();
       const session = await fetchAuthSession();
+
       const groups = (session.tokens?.accessToken?.payload['cognito:groups'] as string[]) || [];
       console.log('User groups:', groups);
 

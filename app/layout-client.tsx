@@ -5,7 +5,7 @@ import { initAmplify } from '@/app/amplify-init';
 initAmplify();
 
 import { useEffect, useState } from 'react';
-import { Authenticator } from '@aws-amplify/ui-react';
+import { Authenticator, useAuthenticator } from '@aws-amplify/ui-react';
 import '@aws-amplify/ui-react/styles.css';
 import './globals.css';
 
@@ -13,8 +13,8 @@ import Sidebar from './components/layout/Sidebar';
 import UserProfileMenu from './components/layout/UserProfileMenu';
 import { useUserAccess } from './hooks/useUserAccess';
 
-// Optional: only for debug printing of current Amplify config
 import { Amplify } from 'aws-amplify';
+import { fetchAuthSession, getCurrentUser } from 'aws-amplify/auth';
 
 interface UserAttributes {
   email: string;
@@ -44,29 +44,50 @@ function UserInfo({ user }: { user: any }) {
 
   return (
       <div className="flex flex-col text-sm">
+        {/* intentionally hidden in UI; kept for structure */}
         {/* <span className="text-gray-900 font-medium">{displayName}</span> */}
         {/* <span className="text-gray-500 text-xs">{displayEmail}</span> */}
       </div>
   );
 }
 
+/** Logs token details ONLY after auth is ready */
+function TokenProbe() {
+  const { authStatus } = useAuthenticator((ctx) => [ctx.authStatus]);
+
+  useEffect(() => {
+    if (authStatus !== 'authenticated') return;
+
+    (async () => {
+      try {
+        const me = await getCurrentUser().catch(() => null);
+        if (me) console.log('[AuthDebug] user:', me);
+
+        const s = await fetchAuthSession({ forceRefresh: true });
+        console.log('[AuthDebug] aud:', s.tokens?.idToken?.payload?.aud);
+        console.log('[AuthDebug] iss:', s.tokens?.idToken?.payload?.iss);
+        console.log('[AuthDebug] groups:', s.tokens?.idToken?.payload?.['cognito:groups']);
+
+        console.log('[AuthDebug] Session', s.tokens?.idToken?.toString());
+      } catch (e) {
+        console.warn('[AuthDebug] session read failed', e);
+      }
+    })();
+  }, [authStatus]);
+
+  return null;
+}
+
 export default function RootLayoutClient({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Helpful runtime checks
-    // eslint-disable-next-line no-console
     console.log('=== AMPLIFY CONFIGURATION (client) ===');
     const cfg: any = (Amplify as any).getConfig?.() || {};
-    // eslint-disable-next-line no-console
     console.log('GraphQL endpoint:', cfg?.API?.GraphQL?.endpoint);
-    // eslint-disable-next-line no-console
     console.log('Cognito region:', cfg?.Auth?.Cognito?.region);
-    // eslint-disable-next-line no-console
     console.log('UserPool Id:', cfg?.Auth?.Cognito?.userPoolId);
-    // eslint-disable-next-line no-console
     console.log('Client Id:', cfg?.Auth?.Cognito?.userPoolClientId);
-    // eslint-disable-next-line no-console
     console.log('Env (NEXT_PUBLIC_ENV):', process.env.NEXT_PUBLIC_ENV || 'local');
-    // eslint-disable-next-line no-console
     console.log('=====================================');
   }, []);
 
@@ -74,6 +95,7 @@ export default function RootLayoutClient({ children }: { children: React.ReactNo
       <Authenticator>
         {({ signOut, user }) => (
             <div className="flex bg-[var(--background)] min-h-screen">
+              <TokenProbe /> {/* <-- added */}
               <Sidebar />
               <div className="flex-1 flex flex-col min-h-screen">
                 <header className="fixed top-0 left-64 right-0 bg-white border-b border-gray-200 z-10">

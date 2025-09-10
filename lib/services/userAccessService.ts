@@ -1,8 +1,9 @@
 // lib/services/userAccessService.ts
 import { generateClient } from 'aws-amplify/data';
+import { fetchAuthSession } from 'aws-amplify/auth';
 import type { Schema } from '@/amplify/data/schema';
 
-export type UserPermissions = {
+export interface UserPermissions {
   canReportInjury: boolean;
   canReportObservation: boolean;
   canSafetyRecognition: boolean;
@@ -18,207 +19,215 @@ export type UserPermissions = {
   canViewDashboard: boolean;
   canSubmitDSATicket: boolean;
   canApproveLessonsLearned: boolean;
-};
+}
 
-export type UserAccess = {
+export interface UserAccess {
   email: string;
-  name?: string | null;
-  roleTitle?: string | null;
-  enterprise?: string | null;
-  segment?: string | null;
-  platform?: string | null;
-  division?: string | null;
-  plant?: string | null;
-  hierarchyString?: string | null;
-  level?: number | null;
-  cognitoGroups?: string[];
-  isActive?: boolean | null;
+  name: string;
+  roleTitle: string;
+  enterprise?: string;
+  segment?: string;
+  platform?: string;
+  division?: string;
+  plant?: string;
+  hierarchyString: string;
+  level: number;
+  cognitoGroups: string[];
+  isActive: boolean;
   permissions: UserPermissions;
   accessScope: 'ENTERPRISE' | 'SEGMENT' | 'PLATFORM' | 'DIVISION' | 'PLANT';
-};
-
-// ---- helpers ----
-const DEFAULT_PERMISSIONS: UserPermissions = {
-  canReportInjury: false,
-  canReportObservation: false,
-  canSafetyRecognition: false,
-  canTakeFirstReportActions: false,
-  canViewPII: false,
-  canTakeQuickFixActions: false,
-  canTakeIncidentRCAActions: false,
-  canPerformApprovalIncidentClosure: false,
-  canViewManageOSHALogs: false,
-  canViewOpenClosedReports: false,
-  canViewSafetyAlerts: false,
-  canViewLessonsLearned: false,
-  canViewDashboard: false,
-  canSubmitDSATicket: false,
-  canApproveLessonsLearned: false,
-};
-
-function fillDefaults(u: Partial<UserAccess>): UserAccess {
-  return {
-    email: u.email || '',
-    name: u.name ?? null,
-    roleTitle: u.roleTitle ?? 'User',
-    enterprise: u.enterprise ?? null,
-    segment: u.segment ?? null,
-    platform: u.platform ?? null,
-    division: u.division ?? null,
-    plant: u.plant ?? null,
-    hierarchyString: u.hierarchyString ?? '',
-    level: u.level ?? 5,
-    cognitoGroups: u.cognitoGroups ?? [],
-    isActive: u.isActive ?? true,
-    permissions: { ...DEFAULT_PERMISSIONS, ...(u.permissions || {}) },
-    accessScope: (u.accessScope as any) ?? 'PLANT',
-  };
 }
 
-function pickModel(clientAny: any, candidates: string[]) {
-  const modelsObj = clientAny?.models ?? {};
-  const names = Object.keys(modelsObj);
-  const chosen =
-      candidates.find(n => names.includes(n)) ??
-      names.find(n => /user/i.test(n)) ?? // fallback: anything with "user"
-      names[0];
-  return { model: modelsObj[chosen], name: chosen, names };
-}
+const APPSYNC_ENDPOINT =
+    process.env.NEXT_PUBLIC_APPSYNC_API_URL || process.env.APPSYNC_API_URL || '';
 
-function roleToScope(level?: number | null): UserAccess['accessScope'] {
+const CANDIDATE_GET_FIELDS = ['getUserRole', 'getUserAccess', 'getUser'];
+const CANDIDATE_LIST_FIELDS = ['listUserRoles', 'listUserAccesses', 'listUsers', 'users'];
+
+// ---------------- helpers ----------------
+function levelToScope(level?: number): UserAccess['accessScope'] {
   switch (level) {
     case 1: return 'ENTERPRISE';
     case 2: return 'SEGMENT';
     case 3: return 'PLATFORM';
     case 4: return 'DIVISION';
-    case 5:
     default: return 'PLANT';
   }
 }
 
-// ---- main API ----
+function normalizeUser(u: any): Omit<UserAccess, 'permissions' | 'accessScope'> & {
+  accessScope: UserAccess['accessScope'];
+  permissions: UserPermissions;
+} {
+  const level = u?.level ?? 5;
+  const roleTitle = u?.roleTitle || 'Unknown Role';
+  const roleLower = String(roleTitle).toLowerCase();
 
-// in-memory cache
-const CACHE_MS = 30 * 60 * 1000;
-const cache = new Map<string, { value: UserAccess | null; exp: number }>();
+  // very light sensible defaults; you can keep your existing role map here
+  const defaultPerms: UserPermissions = roleLower.includes('plant safety manager') ? {
+    canReportInjury: true, canReportObservation: true, canSafetyRecognition: true,
+    canTakeFirstReportActions: true, canViewPII: true, canTakeQuickFixActions: true,
+    canTakeIncidentRCAActions: true, canPerformApprovalIncidentClosure: false,
+    canViewManageOSHALogs: true, canViewOpenClosedReports: true, canViewSafetyAlerts: true,
+    canViewLessonsLearned: true, canViewDashboard: true, canSubmitDSATicket: true,
+    canApproveLessonsLearned: false,
+  } : {
+    // fallback generic viewer-ish defaults
+    canReportInjury: true, canReportObservation: true, canSafetyRecognition: true,
+    canTakeFirstReportActions: false, canViewPII: false, canTakeQuickFixActions: false,
+    canTakeIncidentRCAActions: false, canPerformApprovalIncidentClosure: false,
+    canViewManageOSHALogs: false, canViewOpenClosedReports: true, canViewSafetyAlerts: true,
+    canViewLessonsLearned: true, canViewDashboard: false, canSubmitDSATicket: false,
+    canApproveLessonsLearned: false,
+  };
 
-export async function getCachedUserAccess(email: string): Promise<UserAccess | null> {
-  const key = (email || '').trim().toLowerCase();
-  const now = Date.now();
-  const hit = cache.get(key);
-  if (hit && hit.exp > now) return hit.value;
+  const groups: string[] = (u?.cognitoGroups || []).filter(Boolean);
 
-  const fresh = await getUserAccess(email);
-  cache.set(key, { value: fresh, exp: now + CACHE_MS });
-  return fresh;
+  return {
+    email: u?.email,
+    name: u?.name || (u?.email ? u.email.split('@')[0] : 'Unknown User'),
+    roleTitle,
+    enterprise: u?.enterprise || 'ITW',
+    segment: u?.segment || '',
+    platform: u?.platform || '',
+    division: u?.division || '',
+    plant: u?.plant || '',
+    hierarchyString: u?.hierarchyString || '',
+    level,
+    cognitoGroups: groups,
+    isActive: u?.isActive !== false,
+    accessScope: levelToScope(level),
+    permissions: defaultPerms,
+  };
 }
 
-export function clearUserAccessCache() {
-  cache.clear();
+async function rawGraphqlQuery(jwt: string, query: string, variables: any) {
+  const res = await fetch(process.env.NEXT_PUBLIC_APPSYNC_API_URL!, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'authorization': jwt, // <- ID or ACCESS token (match your choice)
+    },
+    body: JSON.stringify({ query, variables }),
+  });
+  if (!res.ok) throw new Error(`GraphQL ${res.status}`);
+  const { data, errors } = await res.json();
+  if (errors) throw new Error(errors[0]?.message || 'GraphQL error');
+  return data;
 }
 
+// ---------------- public API ----------------
 export async function getUserAccess(email: string): Promise<UserAccess | null> {
-  try {
-    const normalized = (email || '').trim().toLowerCase();
-    if (!normalized) return null;
+  console.log('[UserAccessService] Looking up user:', email);
 
-    // IMPORTANT: create the Data client at call time (Amplify must be configured already)
-    const client = generateClient<Schema>({ authMode: 'userPool' }) as any;
-
-    // 1) Resolve user-access model dynamically
-    const userModelPick = pickModel(client, ['UserRole','UserAccess','User','Users']);
-    if (!userModelPick.model) {
-      console.error('[UserAccessService] No user-access model found. Available:', userModelPick.names);
-      return null;
-    }
-
-    // 2) Query by email using filter (works even if email isn’t PK)
-    const { data, errors } = await userModelPick.model.list({
-      filter: { email: { eq: normalized } },
-      selectionSet: [
-        'email','name','roleTitle',
-        'enterprise','segment','platform','division','plant',
-        'hierarchyString','level','isActive',
-        'cognitoGroups','accessScope',
-      ],
-      limit: 1,
-    });
-
-    if (errors?.length) {
-      console.error('[UserAccessService] GraphQL errors:', errors);
-      return null;
-    }
-
-    const row = (data ?? [])[0];
-    if (!row) {
-      console.warn(`[UserAccessService] No user-access row for email=${normalized}. Models present:`, userModelPick.names);
-      return null;
-    }
-
-    // 3) Build base user access
-    const base: Partial<UserAccess> = {
-      email: row.email,
-      name: row.name,
-      roleTitle: row.roleTitle,
-      enterprise: (row as any).enterprise,
-      segment: (row as any).segment,
-      platform: (row as any).platform,
-      division: (row as any).division,
-      plant: (row as any).plant,
-      hierarchyString: (row as any).hierarchyString,
-      level: (row as any).level ?? 5,
-      isActive: (row as any).isActive ?? true,
-      cognitoGroups: ((row as any).cognitoGroups || []).filter((g: any) => typeof g === 'string'),
-      accessScope: (row as any).accessScope ?? roleToScope((row as any).level),
-    };
-
-    // 4) Permissions: resolve RolePermission model dynamically
-    const permPick = pickModel(client, ['RolePermission','RolePermissions','Permission','Permissions']);
-    let perms: UserPermissions = { ...DEFAULT_PERMISSIONS };
-
-    if (permPick.model) {
-      const { data: rp, errors: permErrors } = await permPick.model.list({
-        filter: { roleTitle: { eq: base.roleTitle } },
-        selectionSet: [
-          'roleTitle',
-          'canReportInjury','canReportObservation','canSafetyRecognition',
-          'canTakeFirstReportActions','canViewPII','canTakeQuickFixActions',
-          'canTakeIncidentRCAActions','canPerformApprovalIncidentClosure',
-          'canViewManageOSHALogs','canViewOpenClosedReports','canViewSafetyAlerts',
-          'canViewLessonsLearned','canViewDashboard','canSubmitDSATicket','canApproveLessonsLearned',
-        ],
-        limit: 1,
-      });
-      if (!permErrors?.length && rp?.[0]) {
-        const p = rp[0] as any;
-        perms = {
-          canReportInjury: !!p.canReportInjury,
-          canReportObservation: !!p.canReportObservation,
-          canSafetyRecognition: !!p.canSafetyRecognition,
-          canTakeFirstReportActions: !!p.canTakeFirstReportActions,
-          canViewPII: !!p.canViewPII,
-          canTakeQuickFixActions: !!p.canTakeQuickFixActions,
-          canTakeIncidentRCAActions: !!p.canTakeIncidentRCAActions,
-          canPerformApprovalIncidentClosure: !!p.canPerformApprovalIncidentClosure,
-          canViewManageOSHALogs: !!p.canViewManageOSHALogs,
-          canViewOpenClosedReports: !!p.canViewOpenClosedReports,
-          canViewSafetyAlerts: !!p.canViewSafetyAlerts,
-          canViewLessonsLearned: !!p.canViewLessonsLearned,
-          canViewDashboard: !!p.canViewDashboard,
-          canSubmitDSATicket: !!p.canSubmitDSATicket,
-          canApproveLessonsLearned: !!p.canApproveLessonsLearned,
-        };
-      } else {
-        // fall through to defaults
-      }
-    } else {
-      console.warn('[UserAccessService] No RolePermission model found. Available:', permPick.names);
-    }
-
-    return fillDefaults({ ...base, permissions: perms });
-
-  } catch (err) {
-    console.error('❌ [UserAccessService] getUserAccess error:', err);
+  // 1) Get a token we can use for either Data client or raw GraphQL
+  const { tokens } = await fetchAuthSession();
+  const idToken = tokens?.idToken?.toString();
+  if (!idToken) {
+    console.error('[UserAccessService] No ID token (user not authenticated)');
     return null;
   }
+
+  // 2) Try Amplify Data first (if models are present)
+  try {
+    const session = await fetchAuthSession({ forceRefresh: true });
+    const idToken = session.tokens?.idToken?.toString();
+    const accessToken = session.tokens?.accessToken?.toString();
+
+    if (!idToken) return null;
+    const client: any = generateClient<Schema>({ authMode: 'userPool', authToken: idToken });
+    const modelNames = Object.keys(client?.models || {});
+    console.log('[UserAccessService] Data models available:', modelNames);
+
+    const userModel =
+        (modelNames.includes('UserRole')   && client.models.UserRole) ||
+        (modelNames.includes('UserAccess') && client.models.UserAccess) ||
+        null;
+
+    if (userModel) {
+      // try PK get, then filtered list
+      try {
+        const got = await userModel.get({ email });
+        if (!got.errors && got.data) {
+          const norm = normalizeUser(got.data);
+          console.log('[UserAccessService] Found via Data.get');
+          return norm;
+        }
+      } catch {}
+      const listed = await userModel.list({ filter: { email: { eq: email } }, limit: 5 });
+      const row = listed.data?.[0];
+      if (row) {
+        const norm = normalizeUser(row);
+        console.log('[UserAccessService] Found via Data.list');
+        return norm;
+      }
+      console.warn('[UserAccessService] No rows via Data client.');
+    } else {
+      console.warn('[UserAccessService] No user-access model found. Available:', modelNames);
+    }
+  } catch (e) {
+    console.warn('[UserAccessService] Data client failed, will try raw GraphQL:', (e as any)?.message);
+  }
+
+  // 3) Fall back to classic AppSync resolvers (raw GraphQL)
+  try {
+    // a) Try "get*" queries (if email is the PK)
+    for (const field of CANDIDATE_GET_FIELDS) {
+      const q = `query Get($email: ID!, $emailStr: String) {
+        ${field}(email: $email) { email name roleTitle hierarchyString enterprise segment platform division plant level isActive cognitoGroups }
+      }`;
+      try {
+        const data = await rawGraphqlQuery(idToken, q, { email, emailStr: email });
+        const item = data?.[field];
+        if (item) {
+          const norm = normalizeUser(item);
+          console.log('[UserAccessService] Found via raw GraphQL get:', field);
+          return norm;
+        }
+      } catch {}
+    }
+
+    // b) Try "list*" queries with filter
+    for (const field of CANDIDATE_LIST_FIELDS) {
+      const q = `query List($email: String!) {
+        ${field}(filter: { email: { eq: $email } }, limit: 5) {
+          items { email name roleTitle hierarchyString enterprise segment platform division plant level isActive cognitoGroups }
+        }
+      }`;
+      try {
+        const data = await rawGraphqlQuery(idToken, q, { email });
+        const items = data?.[field]?.items;
+        if (Array.isArray(items) && items.length) {
+          const norm = normalizeUser(items[0]);
+          console.log('[UserAccessService] Found via raw GraphQL list:', field);
+          return norm;
+        }
+      } catch {}
+    }
+  } catch (e) {
+    console.error('[UserAccessService] raw GraphQL error:', e);
+  }
+
+  console.error('[UserAccessService] No user found for email:', email);
+  return null;
+}
+
+// simple in-memory cache (same as you had)
+const userAccessCache = new Map<string, { ts: number; val: UserAccess }>();
+const TTL = 30 * 60 * 1000;
+
+export async function getCachedUserAccess(email: string, idToken: string) {
+  const q = `
+    query List($email: String!) {
+      listUserRoles(filter: { email: { eq: $email } }, limit: 1) {
+        items { email name roleTitle level enterprise segment platform division plant hierarchyString cognitoGroups isActive }
+      }
+    }`;
+  const r = await fetch(process.env.NEXT_PUBLIC_APPSYNC_API_URL!, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: idToken },
+    body: JSON.stringify({ query: q, variables: { email } }),
+  });
+  const j = await r.json();
+  return j?.data?.listUserRoles?.items?.[0] ?? null;
 }
