@@ -1,137 +1,66 @@
-// app/hooks/useUserAccess.ts - FIXED to remove non-existent accessibleHierarchies property
+// app/hooks/useUserAccess.ts
 'use client';
-
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuthenticator } from '@aws-amplify/ui-react';
-import { getCachedUserAccess, type UserAccess as ServiceUserAccess } from '@/lib/services/userAccessService';
-import {fetchAuthSession} from "aws-amplify/auth";
-import {callAppSync, getIdTokenOrThrow} from "@/lib/utils/appSync";
-
-export interface UserPermissions {
-  canReportInjury: boolean;
-  canReportObservation: boolean;
-  canSafetyRecognition: boolean;
-  canTakeFirstReportActions: boolean;
-  canViewPII: boolean;
-  canTakeQuickFixActions: boolean;
-  canTakeIncidentRCAActions: boolean;
-  canPerformApprovalIncidentClosure: boolean;
-  canViewManageOSHALogs: boolean;
-  canViewOpenClosedReports: boolean;
-  canViewSafetyAlerts: boolean;
-  canViewLessonsLearned: boolean;
-  canViewDashboard: boolean;
-  canSubmitDSATicket: boolean;
-  canApproveLessonsLearned: boolean;
-}
-
-export interface UserAccess {
-  email: string;
-  name: string;
-  roleTitle: string;
-  enterprise?: string;
-  segment?: string;
-  platform?: string;
-  division?: string;
-  plant?: string;
-  hierarchyString: string;
-  level: number;
-  cognitoGroups: string[];
-  isActive: boolean;
-  permissions: UserPermissions;
-  accessScope: 'ENTERPRISE' | 'SEGMENT' | 'PLATFORM' | 'DIVISION' | 'PLANT';
-}
-
-interface UseUserAccessResult {
-  userAccess: UserAccess | null;
-  loading: boolean;
-  error: string | null;
-  refetch: () => Promise<void>;
-  // ✅ Safe helper functions
-  hasPermission: (permission: keyof UserPermissions) => boolean;
-  isReady: boolean;
-  getUserInfo: () => {
-    name: string;
-    email: string;
-    roleTitle: string;
-    level: number;
-    hierarchyString: string;
-    accessScope: string;
-  };
-  // ✅ Methods that PermissionGate expects
-  canPerformAction: (permission: string) => boolean;
-  hasAccessToHierarchy: (hierarchy: string) => boolean;
-}
+import { fetchAuthSession } from 'aws-amplify/auth';
+import { getCachedUserAccess } from '@/lib/services/userAccessService';
 
 export function useUserAccess() {
-  const { user } = useAuthenticator();
+  const { authStatus, user } = useAuthenticator(ctx => [ctx.authStatus, ctx.user]);
   const [userAccess, setUserAccess] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError]   = useState<string | null>(null);
 
   const fetchUserAccess = async () => {
-    const email = user?.signInDetails?.loginId;
-    if (!email) { setLoading(false); setError('No user email found'); return; }
     try {
       setLoading(true);
       setError(null);
 
-      const { payload } = await getIdTokenOrThrow();
-      console.log('[token_use]', payload.token_use); // "id"
-      console.log('[iss]', payload.iss);
-      console.log('[aud]', payload.aud);
-
-      if (process.env.NODE_ENV === 'development') {
-        // --- try PK first ---
-        const getRes = await callAppSync(
-            `query Get($email: ID!) {
-       getUserRole(email: $email) {
-         email name roleTitle level
-         enterprise segment platform division plant
-         hierarchyString cognitoGroups isActive
-       }
-     }`,
-            { email }
-        );
-
-        let row = getRes?.data?.getUserRole ?? null;
-
-        // --- optional fallback: scan with larger limit ---
-        if (!row) {
-          const listRes = await callAppSync(
-              `query List($email: String!, $limit: Int) {
-         listUserRoles(filter: { email: { eq: $email } }, limit: $limit) {
-           items {
-             email name roleTitle level
-             enterprise segment platform division plant
-             hierarchyString cognitoGroups isActive
-           }
-         }
-       }`,
-              { email, limit: 1000 }
-          );
-          row = listRes?.data?.listUserRoles?.items?.[0] ?? null;
-        }
-
-        if (!row) throw new Error('No user access data found');
-
-        setUserAccess({
-          email: row.email,
-          name: row.name,
-          roleTitle: row.roleTitle,
-          enterprise: row.enterprise,
-          segment: row.segment,
-          platform: row.platform,
-          division: row.division,
-          plant: row.plant,
-          hierarchyString: row.hierarchyString,
-          level: row.level,
-          cognitoGroups: row.cognitoGroups,
-          isActive: row.isActive,
-          permissions: row.permissions,
-          accessScope: row.accessScope,
-        });
+      // 🚦 hard gate — only run when signed in
+      if (authStatus !== 'authenticated') {
+        setLoading(false);
+        return;
       }
+
+      const email = user?.signInDetails?.loginId;
+      if (!email) throw new Error('No user email found');
+
+      // get ID token and send it to your API route
+      const s = await fetchAuthSession({ forceRefresh: true });
+      const idToken = s.tokens?.idToken?.toString();
+      if (!idToken) throw new Error('No ID token');
+
+      const apiResp = await fetch(
+          `/api/user-access?email=${encodeURIComponent(email)}`,
+          { cache: 'no-store', headers: { authorization: idToken } } // ⚠️ lower-case header name is fine
+      );
+
+      let access = null;
+      if (apiResp.ok) {
+        const j = await apiResp.json();
+        access = j.ok ? j.user : null;
+      }
+      if (!access) {
+        access = await getCachedUserAccess(email);
+      }
+      if (!access) throw new Error('No user access data found');
+
+      setUserAccess({
+        email:          access.email,
+        name:           access.name,
+        roleTitle:      access.roleTitle,
+        enterprise:     access.enterprise,
+        segment:        access.segment,
+        platform:       access.platform,
+        division:       access.division,
+        plant:          access.plant,
+        hierarchyString:access.hierarchyString,
+        level:          access.level,
+        cognitoGroups:  access.cognitoGroups ?? [],
+        isActive:       access.isActive,
+        permissions:    access.permissions,
+        accessScope:    access.accessScope,
+      });
     } catch (e: any) {
       console.error('[useUserAccess] error:', e);
       setError(e?.message || 'Unknown error');
@@ -141,14 +70,18 @@ export function useUserAccess() {
     }
   };
 
-  useEffect(() => { fetchUserAccess(); }, [user?.signInDetails?.loginId]);
+  // ⛔ don’t run on first paint; only after auth is ready
+  useEffect(() => {
+    if (authStatus === 'authenticated') fetchUserAccess();
+  }, [authStatus, user?.signInDetails?.loginId]);
 
-  // ...return the same shape you already had
   return {
-    userAccess, loading, error,
+    userAccess,
+    loading,
+    error,
     refetch: fetchUserAccess,
     hasPermission: (p: any) => !!userAccess?.permissions?.[p],
-    isReady: !loading && !error && !!userAccess,
+    isReady: authStatus === 'authenticated' && !loading && !error && !!userAccess,
     getUserInfo: () => ({
       name: userAccess?.name || 'Unknown User',
       email: userAccess?.email || '',
@@ -166,7 +99,7 @@ export function useUserAccess() {
         case 'SEGMENT':   return h.startsWith(`ITW>${ua.segment}>`);
         case 'PLATFORM':  return h.startsWith(`ITW>${ua.segment}>${ua.platform}>`);
         case 'DIVISION':  return h.startsWith(`ITW>${ua.segment}>${ua.platform}>${ua.division}>`);
-        case 'PLANT':     return h === ua.hierarchyString;
+        case 'PLANT':     return h ===am ua.hierarchyString;
         default: return false;
       }
     },
