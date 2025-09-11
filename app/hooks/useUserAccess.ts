@@ -99,7 +99,7 @@ export function useUserAccess() {
         case 'SEGMENT':   return h.startsWith(`ITW>${ua.segment}>`);
         case 'PLATFORM':  return h.startsWith(`ITW>${ua.segment}>${ua.platform}>`);
         case 'DIVISION':  return h.startsWith(`ITW>${ua.segment}>${ua.platform}>${ua.division}>`);
-        case 'PLANT':     return h ===am ua.hierarchyString;
+        case 'PLANT':     return h === ua.hierarchyString;
         default: return false;
       }
     },
