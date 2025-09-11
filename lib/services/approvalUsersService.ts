@@ -79,7 +79,7 @@ export async function getApprovalUsers(params: ApprovalUsersParams): Promise<App
 
     console.log(`🔍 [ApprovalUsersService] Getting approval users for: ${userEmail}`);
     console.log(`🔍 [ApprovalUsersService] Include all users: ${includeAllUsers}`);
-    
+
     // Get user access to determine what data they can see
     const userAccess = await getCachedUserAccess(userEmail);
     if (!userAccess) {

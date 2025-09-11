@@ -109,15 +109,12 @@ export function PermissionTest() {
           <div className="md:col-span-2">
             <p className="text-sm text-gray-600">Cognito Groups</p>
             <div className="flex flex-wrap gap-2 mt-1">
-              {groups.map((group) => (
-                  <span
-                      key={group}
-                      className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full"
-                  >
-            {group}
-          </span>
-            ))}
-          </div>
+              {groups.map((group: string) => (
+                  <span key={group} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                    {group}
+                  </span>
+              ))}
+            </div>
           </div>
         </div>
       </div>
