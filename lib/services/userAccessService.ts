@@ -216,13 +216,23 @@ export async function getUserAccess(email: string): Promise<UserAccess | null> {
 const userAccessCache = new Map<string, { ts: number; val: UserAccess }>();
 const TTL = 30 * 60 * 1000;
 
-export async function getCachedUserAccess(email: string, idToken: string) {
+export async function getCachedUserAccess(email: string, idToken?: string) {
   const q = `
     query List($email: String!) {
       listUserRoles(filter: { email: { eq: $email } }, limit: 1) {
         items { email name roleTitle level enterprise segment platform division plant hierarchyString cognitoGroups isActive }
       }
     }`;
+  if (!idToken && typeof window !== 'undefined') {
+    const { fetchAuthSession } = await import('aws-amplify/auth');
+    const { tokens } = await fetchAuthSession({ forceRefresh: true });
+    idToken = tokens?.idToken?.toString();
+  }
+
+  if (!idToken) {
+    // Optionally try your /api/user-access route without token or just fail:
+    throw new Error('No ID token available for user access lookup');
+  }
   const r = await fetch(process.env.NEXT_PUBLIC_APPSYNC_API_URL!, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: idToken },

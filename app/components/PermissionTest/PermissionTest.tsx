@@ -66,6 +66,7 @@ export function PermissionTest() {
   const isHR = () => {
     return userAccess.roleTitle.toLowerCase().includes('hr');
   };
+  const groups: string[] = userAccess?.cognitoGroups ?? [];
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
@@ -108,15 +109,15 @@ export function PermissionTest() {
           <div className="md:col-span-2">
             <p className="text-sm text-gray-600">Cognito Groups</p>
             <div className="flex flex-wrap gap-2 mt-1">
-              {userAccess.cognitoGroups?.map((group) => (
-                <span 
-                  key={group} 
-                  className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full"
-                >
-                  {group}
-                </span>
-              ))}
-            </div>
+              {groups.map((group) => (
+                  <span
+                      key={group}
+                      className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full"
+                  >
+            {group}
+          </span>
+            ))}
+          </div>
           </div>
         </div>
       </div>
