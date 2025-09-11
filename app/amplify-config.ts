@@ -9,23 +9,22 @@ const req = (name: string, v?: string) => {
 const region           = process.env.NEXT_PUBLIC_AWS_REGION ?? process.env.AWS_REGION;
 const userPoolId       = process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID ?? process.env.COGNITO_USER_POOL_ID;
 const userPoolClientId = process.env.NEXT_PUBLIC_COGNITO_USER_POOL_CLIENT_ID ?? process.env.COGNITO_USER_POOL_CLIENT_ID;
-const identityPoolId   = process.env.NEXT_PUBLIC_IDENTITY_POOL_ID; // optional
+const identityPoolId   = process.env.NEXT_PUBLIC_IDENTITY_POOL_ID; // REQUIRED by type
 const graphqlEndpoint  = process.env.NEXT_PUBLIC_APPSYNC_API_URL ?? process.env.APPSYNC_API_URL;
 
 export const amplifyConfig: ResourcesConfig = {
     Auth: {
         Cognito: {
-            // ❌ no region here in v6
             userPoolId:       req('Cognito User Pool Id', userPoolId),
             userPoolClientId: req('Cognito User Pool Client Id', userPoolClientId),
-            ...(identityPoolId ? { identityPoolId } : {}), // keep if you use IAM/federated identities
+            identityPoolId:   req('Cognito Identity Pool Id', identityPoolId),
         },
     },
     API: {
         GraphQL: {
             endpoint:        req('AppSync GraphQL endpoint', graphqlEndpoint),
-            region:          req('AWS region', region),     // ✅ region goes here
-            defaultAuthMode: 'userPool',                    // your AppSync default auth
+            region:          req('AWS region', region),  // region belongs on API
+            defaultAuthMode: 'userPool',                 // you’re sending the Cognito ID token
         },
     },
 };
