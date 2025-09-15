@@ -14,7 +14,7 @@ import UserProfileMenu from './components/layout/UserProfileMenu';
 import { useUserAccess } from './hooks/useUserAccess';
 
 import { Amplify } from 'aws-amplify';
-import { fetchAuthSession, getCurrentUser } from 'aws-amplify/auth';
+import {fetchAuthSession, getCurrentUser, signOut} from 'aws-amplify/auth';
 import {callAppSync, getIdTokenOrThrow} from "@/lib/utils/appSync";
 
 interface UserAttributes {
@@ -61,8 +61,18 @@ function UserInfo({ user }: { user: any }) {
           }
         }`;
 
-        const res = await callAppSync(QUERY, { email });
-        console.log('[AppSync probe] result:', res);
+        try {
+          const res = await callAppSync(QUERY, { email });
+          console.log('[AppSync probe] result:', res);
+        } catch (e:any) {
+          if (e?.name === 'AUTH_RENEWAL_FAILED') {
+            console.warn('Session invalid – signing out');
+            await signOut();
+          } else {
+            console.error(e);
+          }
+        }
+
       } catch (e) {
         console.error('[AppSync probe] failed:', e);
       }
