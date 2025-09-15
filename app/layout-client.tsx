@@ -15,6 +15,7 @@ import { useUserAccess } from './hooks/useUserAccess';
 
 import { Amplify } from 'aws-amplify';
 import { fetchAuthSession, getCurrentUser } from 'aws-amplify/auth';
+import {callAppSync, getIdTokenOrThrow} from "@/lib/utils/appSync";
 
 interface UserAttributes {
   email: string;
@@ -37,6 +38,37 @@ function UserInfo({ user }: { user: any }) {
       setDisplayEmail(user.signInDetails?.loginId || user.username || '');
     }
   }, [userAccess, isReady, user]);
+
+  useEffect(() => {
+    const email =
+        user?.signInDetails?.loginId ||
+        (user as any)?.username ||
+        '';
+
+    if (!email) return;
+
+    (async () => {
+      try {
+        const { payload } = await getIdTokenOrThrow();
+        console.log('[token_use]', payload.token_use); // should be "id"
+        console.log('[iss]', payload.iss);
+        console.log('[aud]', payload.aud);
+
+        const QUERY = `
+        query List($email: String!) {
+          listUserRoles(filter:{ email:{ eq:$email } }, limit:1) {
+            items { email name roleTitle level hierarchyString }
+          }
+        }`;
+
+        const res = await callAppSync(QUERY, { email });
+        console.log('[AppSync probe] result:', res);
+      } catch (e) {
+        console.error('[AppSync probe] failed:', e);
+      }
+    })();
+  }, [user?.signInDetails?.loginId]);
+
 
   if (!displayName && !displayEmail) {
     return <div className="text-sm text-gray-500">Loading user info...</div>;

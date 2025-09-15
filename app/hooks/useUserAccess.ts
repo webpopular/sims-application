@@ -5,6 +5,7 @@ import { useAuthenticator } from '@aws-amplify/ui-react';
 import { fetchAuthSession } from 'aws-amplify/auth';
 import { getCachedUserAccess } from '@/lib/services/userAccessService';
 
+
 export function useUserAccess() {
   const { authStatus, user } = useAuthenticator(ctx => [ctx.authStatus, ctx.user]);
   const [userAccess, setUserAccess] = useState<any>(null);

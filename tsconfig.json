@@ -28,6 +28,11 @@
     "node_modules",
     ".next",
     "amplify/**",
-    "cdk.out/**"
+    "cdk.out/**",
+    "**/*DONT_USE*.ts",
+    "**/*DONT_USE*.tsx",
+    "**/DONT_USE_*",
+    "**/*dont_use*.ts",
+    "**/*dont_use*.tsx"
   ]
 }

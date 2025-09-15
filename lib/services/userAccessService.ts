@@ -30,13 +30,25 @@ export interface UserAccess {
   platform?: string;
   division?: string;
   plant?: string;
+  plantName?: string;
+  divisionName?: string;
+
   hierarchyString: string;
   level: number;
   cognitoGroups: string[];
   isActive: boolean;
   permissions: UserPermissions;
-  accessScope: 'ENTERPRISE' | 'SEGMENT' | 'PLATFORM' | 'DIVISION' | 'PLANT';
+  // @ts-ignore
+  accessScope: AccessScope;
 }
+export type AccessScope = 'ENTERPRISE' | 'SEGMENT' | 'PLATFORM' | 'DIVISION' | 'PLANT';
+
+export const levelToScope = (level: number): AccessScope =>
+    level === 1 ? 'ENTERPRISE'
+        : level === 2 ? 'SEGMENT'
+            : level === 3 ? 'PLATFORM'
+                : level === 4 ? 'DIVISION'
+                    : 'PLANT';
 
 const APPSYNC_ENDPOINT =
     process.env.NEXT_PUBLIC_APPSYNC_API_URL || process.env.APPSYNC_API_URL || '';
@@ -44,16 +56,6 @@ const APPSYNC_ENDPOINT =
 const CANDIDATE_GET_FIELDS = ['getUserRole', 'getUserAccess', 'getUser'];
 const CANDIDATE_LIST_FIELDS = ['listUserRoles', 'listUserAccesses', 'listUsers', 'users'];
 
-// ---------------- helpers ----------------
-function levelToScope(level?: number): UserAccess['accessScope'] {
-  switch (level) {
-    case 1: return 'ENTERPRISE';
-    case 2: return 'SEGMENT';
-    case 3: return 'PLATFORM';
-    case 4: return 'DIVISION';
-    default: return 'PLANT';
-  }
-}
 
 function normalizeUser(u: any): Omit<UserAccess, 'permissions' | 'accessScope'> & {
   accessScope: UserAccess['accessScope'];
