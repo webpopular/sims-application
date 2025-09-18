@@ -4,8 +4,21 @@
 import { useEffect, useState } from 'react';
 import { generateClient } from 'aws-amplify/data';
 import { type Schema } from '@/amplify/data/schema';
-import { useUserAccess } from '@/app/hooks/useUserAccess'; // ✅ ONLY ADD: This import
+import { useUserAccess } from '@/app/hooks/useUserAccess';
 import Link from 'next/link';
+import {initAmplify} from "@/app/amplify-init";
+import {callAppSync} from "@/lib/utils/appSync";
+
+initAmplify();
+
+let dataClient: ReturnType<typeof import('aws-amplify/data').generateClient<Schema>> | null = null;
+async function getDataClient() {
+  if (!dataClient) {
+    const { generateClient } = await import('aws-amplify/data');
+    dataClient = generateClient<Schema>();
+  }
+  return dataClient;
+}
 
 interface Investigation {
   id: string | null;
@@ -249,167 +262,181 @@ export default function InvestigationList() {
   };
 
 // ✅ FIXED: Fetch investigations with corrected RBAC filtering
-const fetchInvestigations = async () => {
-  // ✅ ONLY ADD: User access check at the beginning
-  if (!userAccess?.email) {
-    console.log('⚠️ [InvestigationList] No user access available');
-    return;
-  }
-
-  try {
-    console.log(`🔍 [InvestigationList] Fetching investigations for: ${userAccess.email}`);
-    console.log(`🏢 [InvestigationList] User access scope: ${userAccess.accessScope}`);
-    console.log(`🏢 [InvestigationList] User hierarchy: ${userAccess.hierarchyString}`);
-    
-    // ✅ KEEP YOUR ORIGINAL FILTER LOGIC - ONLY ADD RBAC filtering
-    let filter: any = {
-      or: [
-        { status: { eq: 'Incident with RCA - Open' } },
-        { status: { eq: 'Observation with RCA - Open' } },            
-        { investigationStatus: { eq: 'RCA YET_TO_START' } }
-      ]
-    };
-    
-    // ✅ ONLY ADD: RBAC hierarchy filtering based on user access scope
-    let rbacFilter: any = {};
-    
-    switch (userAccess.accessScope) {
-      case 'ENTERPRISE':
-        console.log(`🌐 [InvestigationList] Enterprise access - showing all investigations`);
-        // No additional filtering needed
-        break;
-        
-      case 'SEGMENT':
-        console.log(`🏭 [InvestigationList] Segment access - filtering by segment: ${userAccess.segment}`);
-        if (userAccess.segment) {
-          rbacFilter.hierarchyString = { 
-            beginsWith: `ITW>${userAccess.segment.replace(/>/g, '')}>`
-          };
-        }
-        break;
-        
-      case 'PLATFORM':
-        console.log(`🏗️ [InvestigationList] Platform access - filtering by platform: ${userAccess.platform}`);
-        if (userAccess.platform) {
-          rbacFilter.hierarchyString = { 
-            beginsWith: `ITW>${userAccess.segment?.replace(/>/g, '')}>${userAccess.platform.replace(/>/g, '')}>`
-          };
-        }
-        break;
-        
-      case 'DIVISION':
-        console.log(`🏢 [InvestigationList] Division access - filtering by division: ${userAccess.division}`);
-        if (userAccess.division) {
-          // ✅ FIXED: Use hierarchyString with beginsWith instead of exact division field match
-          rbacFilter.hierarchyString = { 
-            beginsWith: `ITW>${userAccess.segment?.replace(/>/g, '')}>${userAccess.platform?.replace(/>/g, '')}>${userAccess.division.replace(/>/g, '')}>`
-          };
-        }
-        break;
-        
-      case 'PLANT':
-        console.log(`🏭 [InvestigationList] Plant access - filtering by plant: ${userAccess.plant}`);
-        if (userAccess.plant) {
-          // ✅ FIXED: Use hierarchyString with contains for plant
-          rbacFilter.hierarchyString = { 
-            contains: userAccess.plant
-          };
-        }
-        break;
+  const fetchInvestigations = async () => {
+    if (!userAccess?.email) {
+      console.log('⚠️ [InvestigationList] No user access available');
+      return;
     }
-    
-    // ✅ ONLY ADD: Combine original filter with RBAC filter
-    if (Object.keys(rbacFilter).length > 0) {
-      filter = {
-        and: [
-          filter,
-          rbacFilter
-        ]
+
+    try {
+      console.log(`🔍 [InvestigationList] Fetching investigations for: ${userAccess.email}`);
+      console.log(`🏢 [InvestigationList] Scope: ${userAccess.accessScope}`);
+      console.log(`🏷️ [InvestigationList] Hierarchy: ${userAccess.hierarchyString}`);
+
+      // Original business filter
+      let businessFilter: any = {
+        or: [
+          { status: { eq: 'Incident with RCA - Open' } },
+          { status: { eq: 'Observation with RCA - Open' } },
+          { investigationStatus: { eq: 'RCA YET_TO_START' } },
+        ],
       };
-    }
-    
-    console.log(`🔍 [InvestigationList] Applied filter:`, filter);
 
-    // ✅ KEEP YOUR ORIGINAL GRAPHQL QUERY - ONLY ADD the filter
-    const response = await client.models.Submission.list({
-      filter // ✅ ONLY MODIFY: Use the combined filter
-    });
-
-    // ✅ KEEP ALL YOUR ORIGINAL DATA PROCESSING EXACTLY AS IS
-    if (response.data) {
-      // Create a type guard for Document
-      function isDocument(doc: any): doc is Document {
-        return doc !== null &&
-          typeof doc === 'object' &&
-          'fileName' in doc &&
-          's3Key' in doc &&
-          'uploadedAt' in doc &&
-          'uploadedBy' in doc &&
-          'size' in doc &&
-          'type' in doc;
+      // RBAC filter on hierarchyString
+      let rbacFilter: any = {};
+      switch (userAccess.accessScope) {
+        case 'ENTERPRISE':
+          break;
+        case 'SEGMENT':
+          if (userAccess.segment) {
+            rbacFilter.hierarchyString = {
+              beginsWith: `ITW>${userAccess.segment.replace(/>/g, '')}>`,
+            };
+          }
+          break;
+        case 'PLATFORM':
+          if (userAccess.segment && userAccess.platform) {
+            rbacFilter.hierarchyString = {
+              beginsWith: `ITW>${userAccess.segment.replace(/>/g, '')}>${userAccess.platform.replace(/>/g, '')}>`,
+            };
+          }
+          break;
+        case 'DIVISION':
+          if (userAccess.segment && userAccess.platform && userAccess.division) {
+            rbacFilter.hierarchyString = {
+              beginsWith: `ITW>${userAccess.segment.replace(/>/g, '')}>${userAccess.platform.replace(/>/g, '')}>${userAccess.division.replace(/>/g, '')}>`,
+            };
+          }
+          break;
+        case 'PLANT':
+          if (userAccess.hierarchyString) {
+            // exact plant hierarchy
+            rbacFilter.hierarchyString = { eq: userAccess.hierarchyString };
+          }
+          break;
       }
 
-      function isInterimCorrectiveAction(item: any): item is InterimCorrectiveAction {
-        return item !== null && typeof item === 'object' && 'uploadedAt' in item;
-      }
+      const filter = Object.keys(rbacFilter).length ? { and: [businessFilter, rbacFilter] } : businessFilter;
+      console.log('[InvestigationList] Applied filter:', filter);
 
-      function isRCA(item: any): item is RCA {
-        return item !== null && typeof item === 'object' && 'uploadedAt' in item;
-      }
+      let rows: any[] | null = null;
+      try {
+        const client = await getDataClient();
+        const resp = await client.models.Submission.list({
+          authMode: 'userPool', // important when your default is userPool
+          filter
+        });
 
-      function isFinalCorrectiveAction(item: any): item is FinalCorrectiveAction {
-        return item !== null && typeof item === 'object' && 'uploadedAt' in item;
-      }
-
-      const mappedData: Investigation[] = response.data.map(item => {
-        // Determine if status should be updated to "Complete"
-        let updatedStatus = item.status;
-        if (item.eventApprovalStatus === "ACTION_COMPLETE") {
-          updatedStatus = "Complete";
+        if (resp?.data) {
+          rows = resp.data;
+        } else if (resp?.errors?.length) {
+          throw new Error(resp.errors[0].message ?? 'Unknown Data error');
         }
+      } catch (e) {
+        console.warn('[InvestigationList] Data client not available, falling back to GraphQL:', e);
+      }
 
-        return {
-          id: item.id || null,
-          submissionId: item.submissionId,
-          recordType: item.recordType,
-          division: item.division || null,
-          platform: item.platform || null,
-          status: updatedStatus,
-          location: item.location || '',
-          locationOnSite: item.locationOnSite || '',
-          injuryDescription: item.injuryDescription || '',
-          submissionType: item.submissionType,
-          dateOfIncident: item.dateOfIncident || null,
-          title: item.title || null,
-          createdAt: item.createdAt,
-          updatedAt: item.updatedAt ?? undefined,
-          injuryCategory: item.injuryCategory || null,
-          estimatedLostWorkDays: item.estimatedLostWorkDays ?? null,
-          incidentDescription: item.incidentDescription || '',
-          investigationStatus: item.investigationStatus || null,
-          documents: (item.documents?.filter(isDocument) || []) as Document[],
-          interimCorrectiveActions: (item.interimCorrectiveActions?.filter(isInterimCorrectiveAction) || []) as InterimCorrectiveAction[],
-          rca: (item.rca?.filter(isRCA) || []) as RCA[],
-          finalCorrectiveAction: (item.finalCorrectiveAction?.filter(isFinalCorrectiveAction) || []) as FinalCorrectiveAction[],
-          lessonsLearned: (item.lessonsLearned || []) as { uploadedAt: string }[],
+      // Fallback to raw GraphQL (same AppSync the old app uses)
+            if (!rows) {
+              const query = /* GraphQL */ `
+          query List($filter: ModelSubmissionFilterInput) {
+            listSubmissions(filter: $filter, limit: 200) {
+              items {
+                id
+                submissionId
+                recordType
+                division
+                platform
+                status
+                location
+                locationOnSite
+                injuryDescription
+                submissionType
+                dateOfIncident
+                title
+                createdAt
+                updatedAt
+                injuryCategory
+                estimatedLostWorkDays
+                incidentDescription
+                investigationStatus
+                documents { fileName s3Key uploadedAt uploadedBy size type }
+                interimCorrectiveActions { icaStatus uploadedAt }
+                rca { isRCAComplete rcaStatus uploadedAt }
+                finalCorrectiveAction { fcaStatus uploadedAt }
+                lessonsLearned { uploadedAt }
+                eventApprovalStatus
+                eventApprovaluploadedAt
+                saStatus
+                saUpdateDate
+                hierarchyString
+              }
+            }
+          }`;
+        const { data, errors } = await callAppSync(query, { filter });
+        if (errors?.length) throw new Error(errors[0].message);
+        rows = data?.listSubmissions?.items ?? [];
+      }
 
-          eventApprovalStatus: item.eventApprovalStatus === undefined || item.eventApprovalStatus === null
-            ? 'YET_TO_START'
-            : item.eventApprovalStatus,
+      if (rows) {
+        const isDocument = (doc: any): doc is Document =>
+            doc && typeof doc === 'object' &&
+            'fileName' in doc && 's3Key' in doc && 'uploadedAt' in doc && 'uploadedBy' in doc && 'size' in doc && 'type' in doc;
 
-          eventApprovaluploadedAt: item.eventApprovaluploadedAt ?? undefined,
-          saStatus: item.saStatus || '',
-          saUpdateDate: item.saUpdateDate || '',
-        };
-      });
+        const isInterimCorrectiveAction = (x: any): x is InterimCorrectiveAction =>
+            x && typeof x === 'object' && 'uploadedAt' in x;
 
-      setInvestigations(mappedData);
-      console.log(`✅ [InvestigationList] Loaded ${mappedData.length} investigations for user`);
+        const isRCA = (x: any): x is RCA => x && typeof x === 'object' && 'uploadedAt' in x;
+
+        const isFinalCorrectiveAction = (x: any): x is FinalCorrectiveAction =>
+            x && typeof x === 'object' && 'uploadedAt' in x;
+
+        const mapped = rows.map((item: any) => {
+          let updatedStatus = item.status;
+          if (item.eventApprovalStatus === 'ACTION_COMPLETE') updatedStatus = 'Complete';
+
+          return {
+            id: item.id || null,
+            submissionId: item.submissionId,
+            recordType: item.recordType,
+            division: item.division || null,
+            platform: item.platform || null,
+            status: updatedStatus,
+            location: item.location || '',
+            locationOnSite: item.locationOnSite || '',
+            injuryDescription: item.injuryDescription || '',
+            submissionType: item.submissionType,
+            dateOfIncident: item.dateOfIncident || null,
+            title: item.title || null,
+            createdAt: item.createdAt,
+            updatedAt: item.updatedAt ?? undefined,
+            injuryCategory: item.injuryCategory || null,
+            estimatedLostWorkDays: item.estimatedLostWorkDays ?? null,
+            incidentDescription: item.incidentDescription || '',
+            investigationStatus: item.investigationStatus || null,
+            documents: (item.documents?.filter(isDocument) || []) as Document[],
+            interimCorrectiveActions: (item.interimCorrectiveActions?.filter(isInterimCorrectiveAction) || []) as InterimCorrectiveAction[],
+            rca: (item.rca?.filter(isRCA) || []) as RCA[],
+            finalCorrectiveAction: (item.finalCorrectiveAction?.filter(isFinalCorrectiveAction) || []) as FinalCorrectiveAction[],
+            lessonsLearned: (item.lessonsLearned || []) as { uploadedAt: string }[],
+            eventApprovalStatus:
+                item.eventApprovalStatus === undefined || item.eventApprovalStatus === null
+                    ? 'YET_TO_START'
+                    : item.eventApprovalStatus,
+            eventApprovaluploadedAt: item.eventApprovaluploadedAt ?? undefined,
+            saStatus: item.saStatus || '',
+            saUpdateDate: item.saUpdateDate || '',
+          } as Investigation;
+        });
+
+        setInvestigations(mapped);
+        console.log(`✅ [InvestigationList] Loaded ${mapped.length} investigations`);
+      }
+    } catch (err) {
+      console.error('[InvestigationList] Error fetching investigations:', err);
     }
-  } catch (error) {
-    console.error('Error fetching investigations:', error);
-  }
-};
+  };
+
 
 
   // ✅ KEEP ALL YOUR ORIGINAL UTILITY FUNCTIONS EXACTLY AS IS
