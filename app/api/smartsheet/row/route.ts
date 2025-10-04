@@ -44,6 +44,28 @@ export async function POST(req: Request) {
         const body = await req.json();
         const row = body.row ?? body;
 
+        const sheetName: string | undefined = body?.sheet?.name ?? body?.sheetName;
+
+        let division: string | null = null;
+        let submissionType: string | null = null;
+
+        if (sheetName) {
+            // Example: "Deltar (NA) Injury Report"
+            const match = sheetName.match(/^(.*?)\s*\((.*?)\)\s*(.*?)$/);
+            if (match) {
+                division = match[1]?.trim() ?? null;           // "Deltar"
+                const region = match[2]?.trim() ?? null;       // "NA"
+                submissionType = match[3]?.replace(/Report/i, "").trim() ?? null; // "Injury"
+                if (region) division = `${division} (${region})`;
+            } else {
+                // fallback if pattern doesn’t match — e.g. “Shakeproof Observation Report”
+                const parts = sheetName.split(" ");
+                submissionType = parts.pop()?.replace(/Report/i, "").trim() ?? null;
+                division = parts.join(" ").trim();
+            }
+        }
+        console.log("Detected division:", division, "submissionType:", submissionType);
+
         if (!row?.cells) {
             return NextResponse.json(
                 { status: "error", message: "Invalid Smartsheet payload" },
@@ -59,19 +81,66 @@ export async function POST(req: Request) {
         }
 
         // Build input object (required + schema aligned)
-        const input: Record<string, any> = {
+        // --- Build input object aligned to schema ---
+        let input: Record<string, any> = {
             submissionId: mapped["Auto Number"]?.toString() ?? crypto.randomUUID(),
-            recordType: "Injury",
+            recordType: mapped["Record Type"] ?? "General",
             status: "New",
             location: mapped["LOCATION"] ?? "Unknown",
-            submissionType: mapped["Submission Type"] ?? "Injury",
-            incidentDescription: mapped["Incident Description"] ?? null,
-            injuryDescription: mapped["Injury Description"] ?? null,
-            investigationStatus: "Pending",
-            isCovidRelated: mapped["COVID-19"] ?? null,
+            submissionType,
+            division,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
         };
+
+// Branch based on submission type
+        switch (input.submissionType) {
+            case "Injury":
+                Object.assign(input, {
+                    incidentDescription: mapped["Incident Description"] ?? null,
+                    injuryDescription: mapped["Injury Description"] ?? null,
+                    incidentCategory: mapped["Incident Category/Type"] ?? null,
+                    injuryCategory: mapped["Injury Category"] ?? null,
+                    injuredBodyPart: mapped["Body Part Injured"]
+                        ? [mapped["Body Part Injured"]]
+                        : null,
+                    injuryType: mapped["Injury Type"] ? [mapped["Injury Type"]] : null,
+                    isCovidRelated: mapped["COVID-19"] ?? null,
+                    investigationStatus: "Pending",
+                    employeeId: mapped["Employee ID"]?.toString() ?? null,
+                    firstName: mapped["First Name"] ?? null,
+                    lastName: mapped["Last Name"] ?? null,
+                    dateOfBirth: mapped["Date of Birth"] ?? null,
+                    dateHired: mapped["Date Hired"] ?? null,
+                    sex: mapped["Sex"] ?? null,
+                    employeeType: mapped["Employee Type"] ?? null,
+                    workActivityCategory: mapped["Work Area/Activity Category"] ?? null,
+                });
+                break;
+
+            case "Observation":
+                Object.assign(input, {
+                    obsTypeOfConcern: mapped["Observation Type of Concern"] ?? null,
+                    obsPriorityType: mapped["Observation Priority"] ?? null,
+                    obsCorrectiveAction: mapped["Observation Corrective Action"] ?? null,
+                });
+                break;
+
+            case "Recognition":
+                Object.assign(input, {
+                    recognitionType: mapped["Recognition Type"] ?? null,
+                    recognizedEmployee: mapped["Recognized Employee"] ?? null,
+                    recognitionNotes: mapped["Recognition Notes"] ?? null,
+                });
+                break;
+
+            default:
+                console.warn("Unknown Submission Type:", input.submissionType);
+                break;
+        }
+
+        console.log("Final CreateSubmissionInput:", input);
+
 
         console.log("Final CreateSubmissionInput:", input);
 
