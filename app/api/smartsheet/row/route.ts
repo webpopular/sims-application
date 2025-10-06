@@ -6,7 +6,7 @@ import {
 
 async function getServiceUserToken() {
     const client = new CognitoIdentityProviderClient({
-        region: process.env.AWS_REGION,
+        region: process.env.MY_AWS_REGION,
     });
 
     const command = new InitiateAuthCommand({
