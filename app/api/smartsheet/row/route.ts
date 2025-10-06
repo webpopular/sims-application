@@ -4,7 +4,6 @@ import {
     InitiateAuthCommand,
 } from "@aws-sdk/client-cognito-identity-provider";
 
-// --- Cognito service user auth ---
 async function getServiceUserToken() {
     const client = new CognitoIdentityProviderClient({
         region: process.env.AWS_REGION,
@@ -25,7 +24,22 @@ async function getServiceUserToken() {
     return token;
 }
 
-// --- GraphQL mutation ---
+// --- Helper: normalize division (e.g., "Deltar (NA)" -> "Deltar NA") ---
+function normalizeDivision(mapped: Record<string, any>): string | null {
+    const divisionRaw = mapped["Division"] ?? null;
+    if (!divisionRaw) return null;
+
+    const match = divisionRaw.match(/^(.+?)(?:\s*\(([^)]+)\))?$/);
+    if (match) {
+        const division = match[1].trim();
+        const region = match[2]?.trim();
+        // Combine with space, e.g. "Deltar (NA)" → "Deltar NA"
+        return region ? `${division} ${region}` : division;
+    }
+
+    return divisionRaw.trim();
+}
+
 const mutation = /* GraphQL */ `
   mutation CreateSubmission($input: CreateSubmissionInput!) {
     createSubmission(input: $input) {
@@ -39,49 +53,83 @@ const mutation = /* GraphQL */ `
   }
 `;
 
+// --- Normalize Smartsheet intake to match existing app data ---
+function normalizeSubmissionForApp(input: Record<string, any>): Record<string, any> {
+    // Convert "Injury", "Observation", "Recognition" into "Direct"
+    input.submissionType = "Direct";
+
+    // Normalize division to empty string instead of null
+    if (!input.division) input.division = "";
+
+    // Map location -> locationOnSite
+    input.locationOnSite = input.location ?? "TBD";
+    input.location = "TBD"; // App always stores generic TBD here
+
+    // Use incident description or observation note as title
+    input.title =
+        input.incidentDescription ??
+        input.obsTypeOfConcern ??
+        input.recognitionNotes ??
+        "Smartsheet Submission";
+
+    // Standardize status
+    if (input.title?.toLowerCase().includes("obs")) {
+        input.status = "Observation with RCA - Open";
+    } else {
+        input.status = "Incident with RCA - Open";
+    }
+
+    // Generate a submissionId consistent with app pattern if missing
+    if (!input.submissionId || !input.submissionId.includes("-")) {
+        const now = new Date();
+        const stamp = now.toISOString().slice(2, 10).replace(/-/g, "");
+        input.submissionId = `GL-I-${stamp}-${now.getHours()}${now.getMinutes()}`;
+    }
+
+    return input;
+}
+
+
 export async function POST(req: Request) {
     try {
         const body = await req.json();
         const row = body.row ?? body;
-
         const sheetName: string | undefined = body?.sheet?.name ?? body?.sheetName;
 
-        let division: string | null = null;
-        let submissionType: string | null = null;
-
-        if (sheetName) {
-            // Example: "Deltar (NA) Injury Report"
-            const match = sheetName.match(/^(.*?)\s*\((.*?)\)\s*(.*?)$/);
-            if (match) {
-                division = match[1]?.trim() ?? null;           // "Deltar"
-                const region = match[2]?.trim() ?? null;       // "NA"
-                submissionType = match[3]?.replace(/Report/i, "").trim() ?? null; // "Injury"
-                if (region) division = `${division} (${region})`;
-            } else {
-                // fallback if pattern doesn’t match — e.g. “Shakeproof Observation Report”
-                const parts = sheetName.split(" ");
-                submissionType = parts.pop()?.replace(/Report/i, "").trim() ?? null;
-                division = parts.join(" ").trim();
-            }
-        }
-        console.log("Detected division:", division, "submissionType:", submissionType);
-
-        if (!row?.cells) {
+        if (!row?.cells)
             return NextResponse.json(
                 { status: "error", message: "Invalid Smartsheet payload" },
                 { status: 400 }
             );
-        }
 
-        // Flatten Smartsheet cells
+        // Flatten cells
         const mapped: Record<string, any> = {};
         for (const [colName, cell] of Object.entries(row.cells)) {
             mapped[colName] =
                 (cell as any).value ?? (cell as any).displayValue ?? null;
         }
 
-        // Build input object (required + schema aligned)
-        // --- Build input object aligned to schema ---
+        // Derive division & submission type
+        const submissionType =
+            mapped["Submission Type"] ??
+            sheetName?.match(/\b(Injury|Observation|Recognition)\b/i)?.[1] ??
+            null;
+
+        const division = normalizeDivision(mapped);
+
+        if (!submissionType || !division) {
+            console.warn("⚠️ Missing required division or submissionType");
+            return NextResponse.json(
+                {
+                    status: "skipped",
+                    message: "Missing division or submissionType — not submitted",
+                },
+                { status: 200 }
+            );
+        }
+
+        console.log("✅ Normalized division:", division);
+
         let input: Record<string, any> = {
             submissionId: mapped["Auto Number"]?.toString() ?? crypto.randomUUID(),
             recordType: mapped["Record Type"] ?? "General",
@@ -93,8 +141,16 @@ export async function POST(req: Request) {
             updatedAt: new Date().toISOString(),
         };
 
-// Branch based on submission type
-        switch (input.submissionType) {
+        const smartsheetDate = mapped["Date of Incident"]; // e.g. "2025-10-06"
+        if (smartsheetDate) {
+            // store as YYYY-MM-DD (what the schema expects as a string)
+            input.dateOfIncident = new Date(smartsheetDate).toISOString().slice(0, 10);
+        }
+
+        input = normalizeSubmissionForApp(input);
+
+        // Attach extra fields based on submission type
+        switch (submissionType) {
             case "Injury":
                 Object.assign(input, {
                     incidentDescription: mapped["Incident Description"] ?? null,
@@ -133,26 +189,18 @@ export async function POST(req: Request) {
                     recognitionNotes: mapped["Recognition Notes"] ?? null,
                 });
                 break;
-
-            default:
-                console.warn("Unknown Submission Type:", input.submissionType);
-                break;
         }
 
-        console.log("Final CreateSubmissionInput:", input);
+        console.log("📦 Final CreateSubmissionInput:", input);
 
-
-        console.log("Final CreateSubmissionInput:", input);
-
-        // 🔑 Get Cognito token
+        // --- Authenticate + call AppSync ---
         const token = await getServiceUserToken();
 
-        // --- Direct AppSync call ---
         const response = await fetch(process.env.APPSYNC_API_URL!, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                Authorization: token, // <- Use IdToken here
+                Authorization: token,
             },
             body: JSON.stringify({
                 query: mutation,
@@ -161,7 +209,7 @@ export async function POST(req: Request) {
         });
 
         const result = await response.json();
-        console.log("AppSync raw result:", result);
+        console.log("📡 AppSync raw result:", result);
 
         if (result.data?.createSubmission) {
             return NextResponse.json({
@@ -175,7 +223,7 @@ export async function POST(req: Request) {
             { status: 400 }
         );
     } catch (err: any) {
-        console.error("Smartsheet intake error:", err);
+        console.error("❌ Smartsheet intake error:", err);
         return NextResponse.json(
             {
                 status: "error",
