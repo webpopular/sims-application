@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextResponse } from 'next/server';
 import {
     CognitoIdentityProviderClient,
     InitiateAuthCommand,
-} from "@aws-sdk/client-cognito-identity-provider";
+} from '@aws-sdk/client-cognito-identity-provider';
 
 async function getServiceUserToken() {
     const client = new CognitoIdentityProviderClient({
@@ -10,7 +10,7 @@ async function getServiceUserToken() {
     });
 
     const command = new InitiateAuthCommand({
-        AuthFlow: "USER_PASSWORD_AUTH",
+        AuthFlow: 'USER_PASSWORD_AUTH',
         ClientId: process.env.COGNITO_CLIENT_ID!,
         AuthParameters: {
             USERNAME: process.env.COGNITO_USERNAME!,
