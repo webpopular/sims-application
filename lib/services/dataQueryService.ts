@@ -1,8 +1,8 @@
 // lib/services/dataQueryService.ts - FIXED VERSION
 import { generateClient } from 'aws-amplify/data';
 import { type Schema } from "@/amplify/data/schema";
-import { buildServerHierarchyFilter } from './serverDataFiltering'; // ✅ Use server-side version
-import type { UserAccess } from '@/app/hooks/useUserAccess';
+import { buildServerHierarchyFilter } from './serverDataFiltering';
+import {levelToScope, UserAccess} from "@/lib/services/userAccessService";
 
 const client = generateClient<Schema>();
 
@@ -12,7 +12,7 @@ export class DataQueryService {
     recordType?: string | null,
     additionalFilters?: any
   ) {
-    const hierarchyFilter = buildServerHierarchyFilter(userAccess); // ✅ Use server-side function
+    const hierarchyFilter = buildServerHierarchyFilter(userAccess);
     
     const filter: any = {
       ...hierarchyFilter,
@@ -23,7 +23,10 @@ export class DataQueryService {
     if (recordType && recordType !== 'RECOGNITION') {
       filter.recordType = { eq: recordType };
     }
-    
+
+    const scope = (ua: UserAccess) => ua.accessScope ?? levelToScope(ua.level);
+
+
     console.log(`🔍 [DataQuery] Fetching submissions for ${userAccess.accessScope} user:`, userAccess.email);
     console.log(`🔍 [DataQuery] Applied filters:`, filter);
     

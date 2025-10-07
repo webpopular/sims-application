@@ -24,5 +24,15 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    ".next",
+    "amplify/**",
+    "cdk.out/**",
+    "**/*DONT_USE*.ts",
+    "**/*DONT_USE*.tsx",
+    "**/DONT_USE_*",
+    "**/*dont_use*.ts",
+    "**/*dont_use*.tsx"
+  ]
 }

@@ -4,15 +4,12 @@
 
 import { NextResponse } from 'next/server';
 import { fetchAuthSession } from 'aws-amplify/auth';
-import { Amplify } from 'aws-amplify';
-import config from '@/amplify_outputs.json';
 import {
   CognitoIdentityProviderClient,
   AdminGetUserCommand,
   AdminListGroupsForUserCommand
 } from "@aws-sdk/client-cognito-identity-provider";
 
-Amplify.configure(config);
 
 export async function GET() {
   try {

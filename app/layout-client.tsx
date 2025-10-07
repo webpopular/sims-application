@@ -1,27 +1,21 @@
 // app/layout-client.tsx
-
 'use client';
 
-import { Authenticator } from '@aws-amplify/ui-react';
+import { initAmplify } from '@/app/amplify-init';
+initAmplify();
+
+import { useEffect, useState } from 'react';
+import { Authenticator, useAuthenticator } from '@aws-amplify/ui-react';
 import '@aws-amplify/ui-react/styles.css';
 import './globals.css';
-import { Amplify } from 'aws-amplify';
-import config from '@/amplify_outputs.json';
+
 import Sidebar from './components/layout/Sidebar';
 import UserProfileMenu from './components/layout/UserProfileMenu';
-import { useEffect, useState } from 'react';
 import { useUserAccess } from './hooks/useUserAccess';
 
-Amplify.configure({
-  ...config,
-  API: {
-    GraphQL: {
-      endpoint: config.data.url,
-      region: config.data.aws_region,
-      defaultAuthMode: 'userPool',
-     }
-  }
-});
+import { Amplify } from 'aws-amplify';
+import {fetchAuthSession, getCurrentUser, signOut} from 'aws-amplify/auth';
+import {callAppSync, getIdTokenOrThrow} from "@/lib/utils/appSync";
 
 interface UserAttributes {
   email: string;
@@ -30,7 +24,6 @@ interface UserAttributes {
   family_name?: string;
 }
 
-// ✅ ADDED: User info component to display name and email
 function UserInfo({ user }: { user: any }) {
   const { userAccess, isReady } = useUserAccess();
   const [displayName, setDisplayName] = useState('');
@@ -38,80 +31,144 @@ function UserInfo({ user }: { user: any }) {
 
   useEffect(() => {
     if (isReady && userAccess) {
-      // Use userAccess data first, then fallback to user data
       setDisplayName(userAccess.name || user?.username || 'Unknown User');
       setDisplayEmail(userAccess.email || user?.signInDetails?.loginId || user?.username || '');
     } else if (user) {
-      // Fallback to user data if userAccess not ready
       setDisplayName(user.username || 'Unknown User');
       setDisplayEmail(user.signInDetails?.loginId || user.username || '');
     }
   }, [userAccess, isReady, user]);
 
+  useEffect(() => {
+    const email =
+        user?.signInDetails?.loginId ||
+        (user as any)?.username ||
+        '';
+
+    if (!email) return;
+
+    (async () => {
+      try {
+        const { payload } = await getIdTokenOrThrow();
+        console.log('[token_use]', payload.token_use); // should be "id"
+        console.log('[iss]', payload.iss);
+        console.log('[aud]', payload.aud);
+
+        const QUERY = `
+        query List($email: String!) {
+          listUserRoles(filter:{ email:{ eq:$email } }, limit:1) {
+            items { email name roleTitle level hierarchyString }
+          }
+        }`;
+
+        try {
+          const res = await callAppSync(QUERY, { email });
+          console.log('[AppSync probe] result:', res);
+        } catch (e:any) {
+          if (e?.name === 'AUTH_RENEWAL_FAILED') {
+            console.warn('Session invalid – signing out');
+            await signOut();
+          } else {
+            console.error(e);
+          }
+        }
+
+      } catch (e) {
+        console.error('[AppSync probe] failed:', e);
+      }
+    })();
+  }, [user?.signInDetails?.loginId]);
+
+
   if (!displayName && !displayEmail) {
-    return (
-      <div className="text-sm text-gray-500">
-        Loading user info...
-      </div>
-    );
+    return <div className="text-sm text-gray-500">Loading user info...</div>;
   }
 
   return (
-    <div className="flex flex-col text-sm">
-       {/*<span className="text-gray-900 font-medium">{displayName}</span>*/}
-       {/*<span className="text-gray-500 text-xs">{displayEmail}</span>*/}
-    </div>
+      <div className="flex flex-col text-sm">
+        {/* intentionally hidden in UI; kept for structure */}
+        {/* <span className="text-gray-900 font-medium">{displayName}</span> */}
+        {/* <span className="text-gray-500 text-xs">{displayEmail}</span> */}
+      </div>
   );
 }
 
-export default function RootLayoutClient({ children }: { children: React.ReactNode }) {
+/** Logs token details ONLY after auth is ready */
+function TokenProbe() {
+  const { authStatus } = useAuthenticator((ctx) => [ctx.authStatus]);
 
   useEffect(() => {
-    console.log('=== AMPLIFY CONFIGURATION ===');
-    console.log('AppSync API Endpoint:', process.env.NEXT_PUBLIC_APPSYNC_API_URL);
-    console.log('Cognito User Pool ID:', process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID);
-    console.log('Environment:', process.env.NEXT_PUBLIC_ENV || 'local');
-    console.log('=========================');
+    if (authStatus !== 'authenticated') return;
+
+    (async () => {
+      try {
+        const me = await getCurrentUser().catch(() => null);
+        if (me) console.log('[AuthDebug] user:', me);
+
+        const s = await fetchAuthSession({ forceRefresh: true });
+        console.log('[AuthDebug] aud:', s.tokens?.idToken?.payload?.aud);
+        console.log('[AuthDebug] iss:', s.tokens?.idToken?.payload?.iss);
+        console.log('[AuthDebug] groups:', s.tokens?.idToken?.payload?.['cognito:groups']);
+
+        console.log('[AuthDebug] Session', s.tokens?.idToken?.toString());
+      } catch (e) {
+        console.warn('[AuthDebug] session read failed', e);
+      }
+    })();
+  }, [authStatus]);
+
+  return null;
+}
+
+export default function RootLayoutClient({ children }: { children: React.ReactNode }) {
+  useEffect(() => {
+    // Helpful runtime checks
+    console.log('=== AMPLIFY CONFIGURATION (client) ===');
+    const cfg: any = (Amplify as any).getConfig?.() || {};
+    console.log('GraphQL endpoint:', cfg?.API?.GraphQL?.endpoint);
+    console.log('Cognito region:', cfg?.Auth?.Cognito?.region);
+    console.log('UserPool Id:', cfg?.Auth?.Cognito?.userPoolId);
+    console.log('Client Id:', cfg?.Auth?.Cognito?.userPoolClientId);
+    console.log('Env (NEXT_PUBLIC_ENV):', process.env.NEXT_PUBLIC_ENV || 'local');
+    console.log('=====================================');
   }, []);
-  
+
   return (
-    <Authenticator>
-      {({ signOut, user }) => (
-        <div className="flex bg-[var(--background)] min-h-screen">
-          <Sidebar />
-          <div className="flex-1 flex flex-col min-h-screen">
-            <header className="fixed top-0 left-64 right-0 bg-white border-b border-gray-200 z-10">
-              <div className="flex items-center justify-between px-6 py-2">
-                {/* ✅ ENHANCED: Added logo and improved title layout */}
-                <div className="flex items-center gap-3">
-             
-                  <h1 className="text-lg font-semibold text-gray-900">
-                    Safety Information Management System
-                  </h1>
-                </div>
-                
-                {/* ✅ MODIFIED: Replaced Plant Name with User Info */}
-                <div className="flex items-center gap-6">
-                  <UserInfo user={user} />
-                  <UserProfileMenu
-                    signOut={signOut}
-                    userEmail={user?.signInDetails?.loginId || user?.username || ''}
-                    userName={user?.username}
-                  />
-                </div>
+      <Authenticator>
+        {({ signOut, user }) => (
+            <div className="flex bg-[var(--background)] min-h-screen">
+              <TokenProbe /> {/* <-- added */}
+              <Sidebar />
+              <div className="flex-1 flex flex-col min-h-screen">
+                <header className="fixed top-0 left-64 right-0 bg-white border-b border-gray-200 z-10">
+                  <div className="flex items-center justify-between px-6 py-2">
+                    <div className="flex items-center gap-3">
+                      <h1 className="text-lg font-semibold text-gray-900">
+                        Safety Information Management System
+                      </h1>
+                    </div>
+
+                    <div className="flex items-center gap-6">
+                      <UserInfo user={user} />
+                      <UserProfileMenu
+                          signOut={signOut}
+                          userEmail={user?.signInDetails?.loginId || user?.username || ''}
+                          userName={user?.username}
+                      />
+                    </div>
+                  </div>
+                </header>
+
+                <main className="flex-1 pt-14">
+                  <div className="p-2">{children}</div>
+                </main>
+
+                <footer className="text-center py-3 text-xs text-gray-400">
+                  © 2025 Safety Information Management System
+                </footer>
               </div>
-            </header>
-            <main className="flex-1 pt-14">
-              <div className="p-2">
-                {children}
-              </div>
-            </main>
-            <footer className="text-center py-3 text-xs text-gray-400">
-              © 2025 Safety Information Management System
-            </footer>
-          </div>
-        </div>
-      )}
-    </Authenticator>
+            </div>
+        )}
+      </Authenticator>
   );
 }

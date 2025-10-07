@@ -3,12 +3,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Amplify } from 'aws-amplify';
 import { generateClient } from 'aws-amplify/data';
 import { type Schema } from "@/amplify/data/schema";
-import config from '@/amplify_outputs.json';
+import {amplifyConfig} from "@/app/amplify-config";
 
-Amplify.configure(config, { ssr: true });
+
+let configured = false;
+function ensureAmplify() {
+  if (!configured) {
+    Amplify.configure(amplifyConfig, { ssr: true });
+    configured = true;
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
+    ensureAmplify();
     const client = generateClient<Schema>({
       authMode: 'apiKey'
     });

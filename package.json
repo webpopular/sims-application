@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@aws-amplify/adapter-nextjs": "^1.6.8",
     "@aws-amplify/ui-react": "^6.9.1",
     "@aws-amplify/ui-react-storage": "^3.7.2",
     "@aws-appsync/utils": "^1.12.0",
@@ -28,7 +29,7 @@
     "@tailwindcss/line-clamp": "^0.4.4",
     "@tanstack/react-table": "^8.20.6",
     "@types/aws-lambda": "^8.10.149",
-    "aws-amplify": "^6.14.2",
+    "aws-amplify": "^6.15.5",
     "chart.js": "^4.4.9",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

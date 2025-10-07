@@ -1,6 +1,5 @@
 // amplify/storage/resource.ts
 import { defineStorage } from '@aws-amplify/backend';
-import { auth } from '../auth/resource'; // Import your auth resource
 
 export const storage = defineStorage({
   name: 'simsStorage',
