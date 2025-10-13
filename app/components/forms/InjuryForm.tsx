@@ -1,32 +1,44 @@
 //app/components/forms/InjuryForm.tsx --WORKING OLD CODE, expect           const userAccess = await getUserDataAccess(userInfo.email);
 
 'use client';
-
-import { generateClient } from 'aws-amplify/data';
-import { type Schema } from "@/amplify/data/schema";
-import { forwardRef, useState, useRef, useEffect } from "react";
-import { useRouter, useSearchParams } from 'next/navigation';
+import {useEffect, useState} from "react";
+import {useRouter, useSearchParams} from 'next/navigation';
+import type {Document} from "@/app/types";
 import {
-    type InjuryFormProps, type InjuryFormData, EventApprovalEnum, ReferenceDataItem, SubmissionResult,
+    EventApprovalEnum,
+    type InjuryFormData,
+    type InjuryFormProps,
+    ReferenceDataItem,
+    SubmissionResult,
 } from '@/app/types';
-import { getCurrentUser } from 'aws-amplify/auth';
+import {fetchAuthSession, getCurrentUser} from 'aws-amplify/auth';
 import RejectModal from '../modals/RejectModal';
 import SaveSuccessModal from '../modals/SaveSuccessModal';
 import ClassificationModal from '../modals/ClassificationModal';
-import { toast } from 'react-hot-toast';
-import { getUserInfo } from '@/lib/utils/getUserInfo';
-//import { usePermissions } from '@/lib/utils/PermissionService'; // ✅ Add RBAC hook
-import { useLookupData } from "@/app/utils/useLookupData";
-import { ChevronDown, ChevronRight } from "lucide-react";
-import type { Document } from "@/app/types";
-import { v4 as uuidv4 } from "uuid";
-import { Download, X } from 'lucide-react';
-import { fetchAuthSession } from 'aws-amplify/auth';
+import {toast} from 'react-hot-toast';
+import {getUserInfo} from '@/lib/utils/getUserInfo';
+import {useLookupData} from "@/app/utils/useLookupData";
 import DocumentsModal from '../modals/DocumentUploadModal';
-import { useUserAccess } from '@/app/hooks/useUserAccess';
+import {useUserAccess} from '@/app/hooks/useUserAccess';
+import {sendInjuryToSmartsheet} from "@/app/components/smartsheet/smartsheet-service";
+import { type Schema } from '@/amplify/data/schema';
+import { initAmplify } from '@/app/amplify-init';
+import { generateClient } from "aws-amplify/data";
+import {callAppSync} from "@/lib/utils/appSync";
+
+initAmplify();
+
+let dataClient: any = null;
+async function getDataClient() {
+    if (!dataClient) {
+        const mod = await import('aws-amplify/data');
+        dataClient = mod.generateClient<any>();
+    }
+    return dataClient;
+}
 
 
-const client = generateClient<Schema>();
+
 
 // Helper function to generate report ID with format I-YYMMDD-HHMMSS
 const generateReportId = (formType: 'US' | 'Global') => {
@@ -383,8 +395,17 @@ export default function InjuryForm({ mode, formType, initialData, title }: Injur
 
             console.log('📦 Payload being submitted:', JSON.stringify(submissionData, null, 2));
 
-
-            const response = await client.models.Submission.create(submissionData);
+            const client = await getDataClient();
+            const mutation = `
+              mutation CreateSubmission($input: CreateSubmissionInput!) {
+                createSubmission(input: $input) {
+                  id
+                  submissionId
+                  title
+                }
+              }
+            `;
+            const response = await callAppSync(mutation, { input: submissionData });
             console.log('🟢 Raw response from create:', response);
 
             if (!response?.data) {
@@ -401,7 +422,13 @@ export default function InjuryForm({ mode, formType, initialData, title }: Injur
                 status: 'Draft',
                 documents: [],
             }));
-
+            try {
+                // ✅ Push to Smartsheet after successful submission
+                await sendInjuryToSmartsheet(formData.location, submissionData);
+                console.log('🟢 Successfully synced to Smartsheet.');
+            } catch (err) {
+                console.error('⚠️ Smartsheet sync failed:', err);
+            }
             setHasFormChanges(false);
             setShowSuccessModal(true);
             setShowDocsModal(true);
@@ -520,7 +547,17 @@ export default function InjuryForm({ mode, formType, initialData, title }: Injur
                 documents: [],
             };
 
-            const response = await client.models.Submission.create(submissionData);
+
+            const mutation = `
+              mutation CreateSubmission($input: CreateSubmissionInput!) {
+                createSubmission(input: $input) {
+                  id
+                  submissionId
+                  title
+                }
+              }
+            `;
+            const response = await callAppSync(mutation, { input: formData });
 
             try {
                 if (!response.data) throw new Error('Submission failed: No data returned.');
@@ -590,8 +627,10 @@ export default function InjuryForm({ mode, formType, initialData, title }: Injur
             }
 
             console.log('[handleDocumentsSave] updateInput:', updateInput);
-
-            const response = await client.models.Submission.update(updateInput);
+            const client = await getDataClient();
+            const response = await client.models.Submission.update(
+                updateInput,
+                { authMode: 'userPool' });
 
             if (response.data) {
                 toast.success('Documents updated successfully!');
@@ -644,6 +683,7 @@ export default function InjuryForm({ mode, formType, initialData, title }: Injur
             });
 
             // Only update the rejection-specific fields
+            const client = await getDataClient();
             const response = await client.models.Submission.update({
                 id: initialData?.id,
                 submissionId: formData.submissionId,
@@ -651,7 +691,9 @@ export default function InjuryForm({ mode, formType, initialData, title }: Injur
                 rejectionReason: reason,
                 rejectedAt: new Date().toISOString(),
                 rejectedBy: createdBy
-            });
+            },
+                { authMode: 'userPool' }
+            );
 
             console.log('Rejection response:', response);
 
@@ -757,8 +799,11 @@ export default function InjuryForm({ mode, formType, initialData, title }: Injur
             }
 
             console.log('[InjuryForm] Update data (filtered):', updateData);
-
-            const response = await client.models.Submission.update(updateData);
+            const client = await getDataClient();
+            const response = await client.models.Submission.update(
+                updateData,
+                { authMode: 'userPool' }
+            );
 
             console.log('[InjuryForm] Update response:', response);
 
@@ -828,8 +873,10 @@ export default function InjuryForm({ mode, formType, initialData, title }: Injur
             });
 
             console.log('[InjuryForm] Update data:', updateData);
-
-            const response = await client.models.Submission.update(updateData);
+            const client = await getDataClient();
+            const response = await client.models.Submission.update(
+                updateData,
+                { authMode: 'userPool' });
 
             console.log('[InjuryForm] Update response:', response);
 

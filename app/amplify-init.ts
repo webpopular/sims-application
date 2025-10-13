@@ -8,4 +8,5 @@ export function initAmplify() {
     if (configured) return;
     Amplify.configure(amplifyConfig);
     configured = true;
+
 }

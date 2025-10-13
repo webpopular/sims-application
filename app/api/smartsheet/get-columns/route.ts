@@ -1,56 +1,38 @@
-// app/api/smartsheet/get-columns/route.ts
-import { NextResponse } from 'next/server';
-import { SMARTSHEET_CONFIG, SheetType } from '../config';
+import { NextResponse } from "next/server";
 
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const sheetType = searchParams.get('sheetType') as SheetType;
-  
-  if (!sheetType || !Object.keys(SMARTSHEET_CONFIG.SHEET_IDS).includes(sheetType)) {
-    return NextResponse.json(
-      { error: 'Invalid or missing sheetType parameter' }, 
-      { status: 400 }
-    );
-  }
-  
+export async function GET(req: Request) {
   try {
-    const response = await fetch(
-      `${SMARTSHEET_CONFIG.API_URL}/sheets/${SMARTSHEET_CONFIG.SHEET_IDS[sheetType]}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${process.env.SMARTSHEET_ACCESS_TOKEN}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
+    const { searchParams } = new URL(req.url);
+    const sheetId = searchParams.get("sheetId");
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch sheet: ${response.statusText}`);
+    if (!sheetId) {
+      return NextResponse.json({ error: "Missing sheetId" }, { status: 400 });
     }
 
-    const data = await response.json();
-    
-    const columns = data.columns.map((column: any) => ({
-      id: column.id,
-      title: column.title,
-      type: column.type,
-      primary: column.primary || false,
-      index: column.index
+    const token = process.env.NEXT_PUBLIC_SMARTSHEET_TOKEN;
+    if (!token) {
+      return NextResponse.json({ error: "Missing Smartsheet API key" }, { status: 500 });
+    }
+
+    const res = await fetch(`https://api.smartsheet.com/2.0/sheets/${sheetId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      return NextResponse.json({ error: data }, { status: res.status });
+    }
+
+    // Simplify payload
+    const columns = data.columns.map((c: any) => ({
+      title: c.title,
+      id: c.id,
+      type: c.type,
     }));
 
-    return NextResponse.json({
-      success: true,
-      sheetType,
-      sheetId: data.id,
-      columns: columns,
-      totalColumns: columns.length
-    });
-    
-  } catch (error) {
-    console.error('Error fetching columns:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch columns', details: error instanceof Error ? error.message : String(error) }, 
-      { status: 500 }
-    );
+    return NextResponse.json({ columns });
+  } catch (err: any) {
+    console.error("❌ Error fetching columns:", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
