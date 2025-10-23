@@ -86,7 +86,7 @@ export async function GET(req: NextRequest) {
     const doGraphQL = async (query: string, variables?: any) => {
       const res = await fetch(APPSYNC_ENDPOINT, {
         method: 'POST',
-        headers: { 'content-type':'application/json', authorization: idToken },
+        headers: { 'content-type':'application/json', Authorization: idToken },
         body: JSON.stringify({ query, variables }),
       });
       const json = await res.json();
