@@ -336,6 +336,7 @@ export default function InjuryForm({ mode, formType, initialData, title }: Injur
             console.log('[InjuryForm] Creating submission with hierarchy:', userAccess.hierarchyString);
             console.log('[InjuryForm] User permissions:', userAccess.permissions);
             console.log('[InjuryForm] Creating new submission with ID:', newSubmissionId);
+            console.log('[InjuryForm] Location', formData.location);
 
             const submissionData = {
                 submissionId: newSubmissionId,

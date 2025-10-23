@@ -124,3 +124,61 @@ export async function sendInjuryToSmartsheet(location: string, formData: any) {
     console.log("🟢 Smartsheet sync successful:", result);
     return result;
 }
+
+export async function updateInjuryInSmartsheet(location: string, rowId: number, formData: any) {
+    const sheetId = SHEET_IDS[location.toUpperCase()] || SHEET_IDS.TROY;
+    const columns = await getSmartsheetColumnMap(sheetId);
+    const cells: any[] = [];
+
+    const pushCell = (title: string, value?: any) => {
+        if (value === undefined || value === null || value === "") return;
+
+        const col = columns[title];
+        if (!col) return;
+
+        let normalized = value;
+        switch (col.type) {
+            case "DATE":
+                if (typeof value === "string") normalized = value.slice(0, 10);
+                if (value instanceof Date) normalized = value.toISOString().slice(0, 10);
+                break;
+            case "CHECKBOX":
+                normalized = value === true || value === "Yes" ? true : false;
+                break;
+            default:
+                normalized = String(value);
+                break;
+        }
+        cells.push({ columnId: col.id, value: normalized });
+    };
+
+    // reuse all your pushCell() mappings
+    pushCell("Incident Description", formData.incidentDescription);
+    pushCell("Injury Category", formData.injuryCategory);
+    pushCell("Supervisor Notified", formData.supervisorNotified ? "Yes" : "No");
+    pushCell("Updated At", new Date().toISOString().slice(0, 10));
+    pushCell("Updated By", formData.updatedByName);
+
+    const response = await fetch("/api/smartsheet/update-row", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            sheetId,
+            rows: [
+                {
+                    id: rowId, // ✅ existing Smartsheet row ID
+                    cells,
+                },
+            ],
+        }),
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Smartsheet update failed: ${errorText}`);
+    }
+
+    const result = await response.json();
+    console.log("🟢 Smartsheet update successful:", result);
+    return result;
+}

@@ -81,7 +81,7 @@ export function useUserAccess() {
 
       const apiResp = await fetch(`/api/user-access?` + params.toString(), {
         cache: 'no-store',
-        headers: { authorization: idToken }, // raw JWT (no Bearer)
+        headers: { Authorization: idToken }, // raw JWT (no Bearer)
       });
 
       let access: any = null;
