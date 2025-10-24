@@ -280,7 +280,10 @@ const schema = a.schema({
     createdBy: a.string().required(),
     updatedBy: a.string(),
     owner: a.string(),
-    metadata: a.json()
+    metadata: a.json(),
+    division: a.string(),
+    platform: a.string(),
+    plant: a.string(),
   }).authorization(allow => [
     allow.group('admin').to(['create', 'read', 'update', 'delete']),
     allow.group('hr').to(['create', 'read', 'update', 'delete']),
@@ -865,4 +868,3 @@ const schema = a.schema({
 
 export type Schema = ClientSchema<typeof schema>;
 export { schema };
- 

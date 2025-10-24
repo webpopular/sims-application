@@ -141,113 +141,78 @@ function extractAllPlants(hierarchyMapping: any): string[] {
 }
 
 // ✅ Get accessible plants based on user access scope and hierarchy mapping
+// ✅ Smarter plant resolution across naming differences
 function getAccessiblePlantsFromMapping(hierarchyMapping: any, userAccess: any): string[] {
   try {
     const segments = hierarchyMapping.segments || {};
-    let accessiblePlants: string[] = [];
-    
-    switch (userAccess.accessScope) {
-      case 'ENTERPRISE':
-        // Enterprise users see all plants
-        console.log(`🌐 [PlantLocationService] Enterprise access - showing all plants`);
-        accessiblePlants = extractAllPlants(hierarchyMapping);
-        break;
-        
-      case 'SEGMENT':
-        // Segment users see all plants in their segment
-        console.log(`🏭 [PlantLocationService] Segment access - showing plants in segment: ${userAccess.segment}`);
-        const segmentKey = `ITW>${userAccess.segment}>`;
-        if (segments[segmentKey]) {
-          const platforms = segments[segmentKey].platforms || {};
-          for (const platformKey in platforms) {
-            const platform = platforms[platformKey];
-            const divisions = platform.divisions || {};
-            for (const divisionKey in divisions) {
-              const plants = divisions[divisionKey];
-              if (Array.isArray(plants)) {
-                accessiblePlants.push(...plants);
-              }
-            }
-          }
-        }
-        break;
-        
-      case 'PLATFORM':
-        // Platform users see all plants in their platform
-        console.log(`🏗️ [PlantLocationService] Platform access - showing plants in platform: ${userAccess.platform}`);
-        const platformKey = `ITW>${userAccess.segment}>${userAccess.platform}>`;
-        
-        for (const segmentKey in segments) {
-          const segment = segments[segmentKey];
-          const platforms = segment.platforms || {};
-          if (platforms[platformKey]) {
-            const divisions = platforms[platformKey].divisions || {};
-            for (const divisionKey in divisions) {
-              const plants = divisions[divisionKey];
-              if (Array.isArray(plants)) {
-                accessiblePlants.push(...plants);
-              }
-            }
-          }
-        }
-        break;
-        
-      case 'DIVISION':
-        // Division users see all plants in their division
-        console.log(`🏢 [PlantLocationService] Division access - showing plants in division: ${userAccess.division}`);
-        const divisionKey = `ITW>${userAccess.segment}>${userAccess.platform}>${userAccess.division}>`;
-        
-        for (const segmentKey in segments) {
-          const segment = segments[segmentKey];
-          const platforms = segment.platforms || {};
-          for (const platformKey in platforms) {
-            const platform = platforms[platformKey];
-            const divisions = platform.divisions || {};
-            if (divisions[divisionKey]) {
-              const plants = divisions[divisionKey];
-              if (Array.isArray(plants)) {
-                accessiblePlants.push(...plants);
-              }
-            }
-          }
-        }
-        break;
-        
-      case 'PLANT':
-        // Plant users see only their specific plant(s)
-        console.log(`🏭 [PlantLocationService] Plant access - showing only user's plant: ${userAccess.plant}`);
-        
-        // For plant users, we need to find their plant in the mapping
-        // Since the mapping uses descriptive names, we need to match the user's plant
-        const allPlants = extractAllPlants(hierarchyMapping);
-        
-        // Try to find exact match first
-        const exactMatch = allPlants.find(plant => 
-          plant.toLowerCase().includes(userAccess.plant.toLowerCase()) ||
-          userAccess.plant.toLowerCase().includes(plant.toLowerCase())
-        );
-        
-        if (exactMatch) {
-          accessiblePlants = [exactMatch];
-        } else {
-          // Fallback: show plants that contain the user's plant name
-          accessiblePlants = allPlants.filter(plant => 
-            plant.toLowerCase().includes(userAccess.plant.toLowerCase()) ||
-            userAccess.plant.toLowerCase().includes(plant.toLowerCase())
-          );
-        }
-        break;
-        
-      default:
-        console.warn(`⚠️ [PlantLocationService] Unknown access scope: ${userAccess.accessScope}`);
-        accessiblePlants = [];
+    const result: string[] = [];
+
+    // Normalized lowercase names for fuzzy match
+    const segName = (userAccess.segment || '').toLowerCase();
+    const platName = (userAccess.platform || '').toLowerCase();
+    const divName = (userAccess.division || '').toLowerCase();
+    const scope = userAccess.accessScope;
+
+    const matchesName = (key: string, name: string) => {
+      const k = key.toLowerCase();
+      return k.includes(name) || name.includes(k);
+    };
+
+    // Enterprise → all
+    if (scope === 'ENTERPRISE') {
+      console.log(`🌐 [PlantLocationService] Enterprise access - showing all plants`);
+      return extractAllPlants(hierarchyMapping);
     }
-    
-    // Remove duplicates and sort
-    return [...new Set(accessiblePlants)].sort();
-    
+
+    // Traverse hierarchy once — flexible name matching
+    for (const segKey in segments) {
+      const segNode = segments[segKey];
+      if (!segNode?.platforms) continue;
+      const segMatch = matchesName(segKey, segName) || scope === 'ENTERPRISE';
+
+      for (const platKey in segNode.platforms) {
+        const platNode = segNode.platforms[platKey];
+        if (!platNode?.divisions) continue;
+        const platMatch =
+            segMatch &&
+            (matchesName(platKey, platName) ||
+                (scope === 'SEGMENT' && segMatch));
+
+        for (const divKey in platNode.divisions) {
+          const plants = platNode.divisions[divKey];
+          if (!Array.isArray(plants)) continue;
+          const divMatch =
+              platMatch &&
+              (matchesName(divKey, divName) ||
+                  (scope === 'PLATFORM' && platMatch) ||
+                  (scope === 'SEGMENT' && segMatch));
+
+          // Add matching plants depending on scope
+          if (
+              (scope === 'DIVISION' && divMatch) ||
+              (scope === 'PLATFORM' && platMatch) ||
+              (scope === 'SEGMENT' && segMatch)
+          ) {
+            result.push(...plants);
+          } else if (scope === 'PLANT' && userAccess.plant) {
+            const plantName = userAccess.plant.toLowerCase();
+            const matchingPlant = plants.find(
+                p =>
+                    p.toLowerCase().includes(plantName) ||
+                    plantName.includes(p.toLowerCase())
+            );
+            if (matchingPlant) result.push(matchingPlant);
+          }
+        }
+      }
+    }
+
+    console.log(
+        `✅ [PlantLocationService] Found ${result.length} plants after flexible search`
+    );
+    return [...new Set(result)].sort();
   } catch (error) {
-    console.error('❌ [PlantLocationService] Error getting accessible plants:', error);
+    console.error('❌ [PlantLocationService] Error in getAccessiblePlantsFromMapping:', error);
     return [];
   }
 }

@@ -46,9 +46,14 @@ export const useLookupData = () => {
           console.log(`[useLookupData] User hierarchy: ${userAccess.hierarchyString}`);
           console.log(`[useLookupData] User plant: ${userAccess.plant}`);
         }
-        
-        const lookupResult: LookupValuesResult = await getCachedLookupValues(userEmail);
-        
+
+        const lookupResult: LookupValuesResult = await getCachedLookupValues(userEmail, {
+            division: userAccess?.division,
+            platform: userAccess?.platform,
+            plant: userAccess?.plant,
+            accessScope: userAccess?.accessScope,
+        });
+
         if (!lookupResult.success) {
           console.error('[useLookupData] Failed to fetch lookup data:', lookupResult.error);
           return;

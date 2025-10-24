@@ -120,98 +120,36 @@ async function rawGraphqlQuery(jwt: string, query: string, variables: any) {
 
 // ---------------- public API ----------------
 export async function getUserAccess(email: string): Promise<UserAccess | null> {
-  console.log('[UserAccessService] Looking up user:', email);
+  console.log('[UserAccessService] Looking up user via GraphQL fallback:', email);
 
-  // 1) Get a token we can use for either Data client or raw GraphQL
   const { tokens } = await fetchAuthSession();
   const idToken = tokens?.idToken?.toString();
-  if (!idToken) {
-    console.error('[UserAccessService] No ID token (user not authenticated)');
+  if (!idToken) return null;
+
+  const q = `
+    query ListUserRoles($email: String!) {
+      listUserRoles(filter: { email: { eq: $email } }) {
+        items {
+          email name roleTitle hierarchyString enterprise segment platform division plant level isActive cognitoGroups
+        }
+      }
+    }`;
+
+  const res = await fetch(process.env.NEXT_PUBLIC_APPSYNC_API_URL!, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: idToken },
+    body: JSON.stringify({ query: q, variables: { email } }),
+  });
+  const { data, errors } = await res.json();
+  if (errors || !data?.listUserRoles?.items?.length) {
+    console.error('[UserAccessService] No user role found for', email);
     return null;
   }
 
-  // 2) Try Amplify Data first (if models are present)
-  try {
-    const session = await fetchAuthSession({ forceRefresh: true });
-    const idToken = session.tokens?.idToken?.toString();
-    const accessToken = session.tokens?.accessToken?.toString();
-
-    if (!idToken) return null;
-    const client: any = generateClient<Schema>({ authMode: 'userPool', authToken: idToken });
-    const modelNames = Object.keys(client?.models || {});
-    console.log('[UserAccessService] Data models available:', modelNames);
-
-    const userModel =
-        (modelNames.includes('UserRole')   && client.models.UserRole) ||
-        (modelNames.includes('UserAccess') && client.models.UserAccess) ||
-        null;
-
-    if (userModel) {
-      // try PK get, then filtered list
-      try {
-        const got = await userModel.get({ email });
-        if (!got.errors && got.data) {
-          const norm = normalizeUser(got.data);
-          console.log('[UserAccessService] Found via Data.get');
-          return norm;
-        }
-      } catch {}
-      const listed = await userModel.list({ filter: { email: { eq: email } }, limit: 5 });
-      const row = listed.data?.[0];
-      if (row) {
-        const norm = normalizeUser(row);
-        console.log('[UserAccessService] Found via Data.list');
-        return norm;
-      }
-      console.warn('[UserAccessService] No rows via Data client.');
-    } else {
-      console.warn('[UserAccessService] No user-access model found. Available:', modelNames);
-    }
-  } catch (e) {
-    console.warn('[UserAccessService] Data client failed, will try raw GraphQL:', (e as any)?.message);
-  }
-
-  // 3) Fall back to classic AppSync resolvers (raw GraphQL)
-  try {
-    // a) Try "get*" queries (if email is the PK)
-    for (const field of CANDIDATE_GET_FIELDS) {
-      const q = `query Get($email: ID!, $emailStr: String) {
-        ${field}(email: $email) { email name roleTitle hierarchyString enterprise segment platform division plant level isActive cognitoGroups }
-      }`;
-      try {
-        const data = await rawGraphqlQuery(idToken, q, { email, emailStr: email });
-        const item = data?.[field];
-        if (item) {
-          const norm = normalizeUser(item);
-          console.log('[UserAccessService] Found via raw GraphQL get:', field);
-          return norm;
-        }
-      } catch {}
-    }
-
-    // b) Try "list*" queries with filter
-    for (const field of CANDIDATE_LIST_FIELDS) {
-      const q = `query List($email: String!) {
-        ${field}(filter: { email: { eq: $email } }, limit: 5) {
-          items { email name roleTitle hierarchyString enterprise segment platform division plant level isActive cognitoGroups }
-        }
-      }`;
-      try {
-        const data = await rawGraphqlQuery(idToken, q, { email });
-        const items = data?.[field]?.items;
-        if (Array.isArray(items) && items.length) {
-          const norm = normalizeUser(items[0]);
-          console.log('[UserAccessService] Found via raw GraphQL list:', field);
-          return norm;
-        }
-      } catch {}
-    }
-  } catch (e) {
-    console.error('[UserAccessService] raw GraphQL error:', e);
-  }
-
-  console.error('[UserAccessService] No user found for email:', email);
-  return null;
+  const user = data.listUserRoles.items[0];
+  const norm = normalizeUser(user);
+  console.log('[UserAccessService] ✅ Found via GraphQL listUserRoles');
+  return norm;
 }
 
 // simple in-memory cache (same as you had)

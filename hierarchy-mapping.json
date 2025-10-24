@@ -1,0 +1,229 @@
+{
+  "segments": {
+    "ITW>Automotive OEM>": {
+      "platforms": {
+        "ITW>Automotive OEM>Asia BD>": {
+          "regions": {
+            "ITW>Automotive OEM>Asia BD>Asia>": {
+              "divisions": {
+                "ITW>Automotive OEM>Asia BD>AFM Korea & Daelim>": [
+                  "Asan, KR",
+                  "Gyeongju, KR",
+                  "Incheon, KR",
+                  "Ulsan, KR"
+                ],
+                "ITW>Automotive OEM>Asia BD>China AFM>": [
+                  "Langfang, CN (BU)",
+                  "Ningbo, CN"
+                ],
+                "ITW>Automotive OEM>Asia BD>China Engineered Products>": [
+                  "CHINA TBD"
+                ],
+                "ITW>Automotive OEM>Asia BD>India & SEA>": [
+                  "Chennai, IN",
+                  "Delhi, IN",
+                  "Penang, MY",
+                  "Pune, IN"
+                ],
+                "ITW>Automotive OEM>Asia BD>Japan Office>": [
+                  "Tokyo, JP"
+                ],
+                "ITW>Automotive OEM>Asia BD>NIMC>": [
+                  "Development Office"
+                ]
+              }
+            }
+          }
+        },
+        "ITW>Automotive OEM>Engineered Products>": {
+          "regions": {
+            "ITW>Automotive OEM>Engineered Products>Europe>": {
+              "divisions": {
+                "ITW>Automotive OEM>Engineered Products>AFM EU>": [
+                  "Bytča, SK",
+                  "Enkenbach, DE, AirFlow",
+                  "Repov, CZ"
+                ],
+                "ITW>Automotive OEM>Engineered Products>EU Metal Fasteners>": [
+                  "Ornans, FR, Rivex",
+                  "Sabadell, ES, Mikalor"
+                ],
+                "ITW>Automotive OEM>Engineered Products>Global Safety EU>": [
+                  "Hodenhagen, DE, Safety"
+                ],
+                "ITW>Automotive OEM>Engineered Products>Motion EU>": [
+                  "Röttingen, DE"
+                ],
+                "ITW>Automotive OEM>Engineered Products>Seats EU>": [
+                  "Les Franqueses, ES, Seats"
+                ],
+                "ITW>Automotive OEM>Engineered Products>TFM EU>": [
+                  "Genay, FR",
+                  "Hodenhagen, DE, TFM",
+                  "Plailly, FR",
+                  "Velká Bíteš, CZ, TFM"
+                ]
+              }
+            },
+            "ITW>Automotive OEM>Engineered Products>North America>": {
+              "divisions": {
+                "ITW>Automotive OEM>Engineered Products>AFM NA>": [
+                  "Reynosa, MX",
+                  "Westminster, MA"
+                ],
+                "ITW>Automotive OEM>Engineered Products>Global Safety NA>": [
+                  "Elmhurst, IL",
+                  "Monterrey, MX"
+                ],
+                "ITW>Automotive OEM>Engineered Products>Motion NA>": [
+                  "Frankfort (21601)"
+                ],
+                "ITW>Automotive OEM>Engineered Products>NA Stamped Fasteners>": [
+                  "Gallatin, TN",
+                  "Lexington, KY",
+                  "Naugatuck, CT"
+                ],
+                "ITW>Automotive OEM>Engineered Products>Seats NA>": [
+                  "Lakeville, CT",
+                  "Millerton, NY",
+                  "Rockford, MI"
+                ],
+                "ITW>Automotive OEM>Engineered Products>TFM NA>": [
+                  "Bryan, OH",
+                  "Hebron, IL",
+                  "Juarez, MX"
+                ]
+              }
+            }
+          }
+        },
+        "ITW>Automotive OEM>Plastic Fasteners>": {
+          "regions": {
+            "ITW>Automotive OEM>Plastic Fasteners>South America>": {
+              "divisions": {
+                "ITW>Automotive OEM>Plastic Fasteners>Brazil>": [
+                  "Sao Paulo, BR"
+                ]
+              }
+            },
+            "ITW>Automotive OEM>Plastic Fasteners>North America>": {
+              "divisions": {
+                "ITW>Automotive OEM>Plastic Fasteners>Deltar NA>": [
+                  "Chippewa Falls, WI",
+                  "Frankfort (21555)",
+                  "Troy, MI"
+                ]
+              }
+            },
+            "ITW>Automotive OEM>Plastic Fasteners>Europe>": {
+              "divisions": {
+                "ITW>Automotive OEM>Plastic Fasteners>EUGA>": [
+                  "Creglingen, DE",
+                  "Enkenbach, DE, EUGA",
+                  "Les Franqueses, ES, Fasteners 1, 2K",
+                  "Les Franqueses, ES, Fastners 2, 1K"
+                ],
+                "ITW>Automotive OEM>Plastic Fasteners>EURA>": [
+                  "Basingstoke, GB",
+                  "Beauchamp, FR",
+                  "Bredaryd, SE",
+                  "Hone, IT",
+                  "Ingwiller, FR"
+                ]
+              }
+            },
+            "ITW>Automotive OEM>Plastic Fasteners>Asia>": {
+              "divisions": {
+                "ITW>Automotive OEM>Plastic Fasteners>East Asia PF>": [
+                  "Gimhae, KR, GH Fasteners",
+                  "Hwaseong, KR, AOC Fasteners",
+                  "Shanghai, Chundong Road, CN, Fasteners",
+                  "Shanghai, Grand Campus II, CN, Fasteners"
+                ]
+              }
+            }
+          }
+        },
+        "ITW>Automotive OEM>Smart Components>": {
+          "regions": {
+            "ITW>Automotive OEM>Smart Components>Asia>": {
+              "divisions": {
+                "ITW>Automotive OEM>Smart Components>Smart Components Asia>": [
+                  "Chongqing, CN",
+                  "Shanghai, Grand Campus I, CN, Smart Components"
+                ]
+              }
+            },
+            "ITW>Automotive OEM>Smart Components>Europe>": {
+              "divisions": {
+                "ITW>Automotive OEM>Smart Components>Smart Components EU>": [
+                  "Istebna, PL",
+                  "Röttingen, DE, B&F",
+                  "Velká Bíteš, CZ, B&F 20 site",
+                  "Velká Bíteš, CZ, B&F 80 site"
+                ]
+              }
+            },
+            "ITW>Automotive OEM>Smart Components>North America>": {
+              "divisions": {
+                "ITW>Automotive OEM>Smart Components>Smart Components NA>": [
+                  "Aguascalientes, MX",
+                  "Frankfort (21701)",
+                  "Lockport, IL",
+                  "Mokena, IL",
+                  "Richton Park, IL",
+                  "Saltillo, MX"
+                ]
+              }
+            }
+          }
+        },
+        "ITW>Automotive OEM>TFM & Metals>": {
+          "regions": {
+            "ITW>Automotive OEM>TFM & Metals>Europe>": {
+              "divisions": {
+                "ITW>Automotive OEM>TFM & Metals>Drawform EU>": [
+                  "Velká Bíteš, CZ, Drawform"
+                ]
+              }
+            },
+            "ITW>Automotive OEM>TFM & Metals>North America>": {
+              "divisions": {
+                "ITW>Automotive OEM>TFM & Metals>Drawform NA>": [
+                  "Decatur, AL",
+                  "Martinsburg, WV",
+                  "Waterbury, CT",
+                  "Zeeland, MI"
+                ],
+                "ITW>Automotive OEM>TFM & Metals>Shakeproof NA>": [
+                  "Broadview, IL",
+                  "Elgin, IL",
+                  "Iron Ridge, IL",
+                  "Machesney Park, IL",
+                  "Milwaukee, WI",
+                  "Watertown, WI"
+                ],
+                "ITW>Automotive OEM>TFM & Metals>TFM NA>": [
+                  "Bryan, OH",
+                  "Hebron, IL",
+                  "Juarez, MX"
+                ]
+              }
+            },
+            "ITW>Automotive OEM>TFM & Metals>Asia>": {
+              "divisions": {
+                "ITW>Automotive OEM>TFM & Metals>TFM China & Drawform>": [
+                  "Qufu, CN",
+                  "Shanghai, Grand Campus I, CN, TFM",
+                  "Shanghai, Tianying Road, CN, China Drawform"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "lastUpdated": "2025-10-22T20:00:00Z",
+  "version": "1.1"
+}
