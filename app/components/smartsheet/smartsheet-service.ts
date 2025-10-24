@@ -89,8 +89,8 @@ export async function sendInjuryToSmartsheet(location: string, formData: any) {
     pushCell("Date of Incident", formData.dateOfIncident);
     pushCell("Incident Category/Type", formData.incidentCategory);
     pushCell("Body Part Injured", formData.injuredBodyPart);
-    pushCell("Injury Category", formData.injuryCategory);
-    pushCell("Injury Type", formData.injuryType);
+    pushCell("Injury Category", formData.injuryType);
+    pushCell("Injury Type", formData.injuryCategory);
     pushCell("Incident Description", formData.incidentDescription);
     pushCell("Injury Description", formData.injuryDescription);
     pushCell("COVID-19", formData.isCovidRelated ? "Yes" : "No");
