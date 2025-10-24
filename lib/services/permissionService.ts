@@ -40,6 +40,24 @@ function levelToScope(level?: number): AccessScope {
   }
 }
 
+export function normalizeHierarchyPart(value?: string): string {
+  if (!value) return '';
+  const v = value.trim().toLowerCase();
+
+  const map: Record<string, string> = {
+    // SEGMENT corrections
+    'automotive': 'automotive oem',
+    // PLATFORM corrections
+    'components': 'plastic fasteners',
+    'metals': 'tfm & metals',
+    // DIVISION corrections
+    'deltar': 'deltar na',
+    // Add others here as needed
+  };
+
+  return map[v] || value;
+}
+
 function scopeFrom(u: UA): AccessScope {
   return u.accessScope ?? levelToScope(u.level);
 }
@@ -59,9 +77,9 @@ function userPrefixForScope(u: UA, scope: AccessScope): string | null {
       ? u.enterprise.slice(0, -1)
       : (u.enterprise ?? 'ITW');
 
-  const segment  = u.segment;
-  const platform = u.platform;
-  const division = u.divisionName ?? u.division;
+  const segment  = normalizeHierarchyPart(u.segment);
+  const platform = normalizeHierarchyPart(u.platform);
+  const division = normalizeHierarchyPart(u.divisionName ?? u.division);
   const plant    = u.plantName ?? u.plant;
 
   // Build the narrowest path we KNOW for the given scope

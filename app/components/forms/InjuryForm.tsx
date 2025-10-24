@@ -301,7 +301,7 @@ export default function InjuryForm({ mode, formType, initialData, title }: Injur
             ageRanges: lookupValues["Age Range"] || [],
             tenureRanges: lookupValues["Experience at ITW"] || [],
             experienceLevels: lookupValues["Experience in Role"] || [],
-            locationTypes: lookupValues["Plant Location"] || [],
+            locationTypes: lookupValues["Plant Location"] || lookupValues["Location"] || [],
             activityTypes: lookupValues["Work Activity Type"] || [],
             injuryTypes: lookupValues["Injury Type"] || [],
             injuredBodyParts: lookupValues["Injured Body Part"] || [],
