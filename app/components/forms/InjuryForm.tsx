@@ -336,7 +336,7 @@ export default function InjuryForm({ mode, formType, initialData, title }: Injur
             console.log('[InjuryForm] Creating submission with hierarchy:', userAccess.hierarchyString);
             console.log('[InjuryForm] User permissions:', userAccess.permissions);
             console.log('[InjuryForm] Creating new submission with ID:', newSubmissionId);
-
+            console.log('[InjuryForm] location', formData.locationOnSite)
             const submissionData = {
                 submissionId: newSubmissionId,
                 recordType: 'INJURY_REPORT',
@@ -345,7 +345,7 @@ export default function InjuryForm({ mode, formType, initialData, title }: Injur
                 platform: formData.platform,
                 status: 'Draft',
                 investigationStatus: 'Draft',
-                location: formData.location || 'TBD',
+                location: formData.locationOnSite || 'TBD',
                 submissionType: 'Direct',
                 dateOfIncident: formData.dateOfIncident,
                 timeOfIncidentHour: formData.timeOfIncidentHour || '00',
