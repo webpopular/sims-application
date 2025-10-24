@@ -424,7 +424,7 @@ export default function InjuryForm({ mode, formType, initialData, title }: Injur
             }));
             try {
                 // ✅ Push to Smartsheet after successful submission
-                await sendInjuryToSmartsheet(formData.location, submissionData);
+                await sendInjuryToSmartsheet(formData.locationOnSite, submissionData);
                 console.log('🟢 Successfully synced to Smartsheet.');
             } catch (err) {
                 console.error('⚠️ Smartsheet sync failed:', err);

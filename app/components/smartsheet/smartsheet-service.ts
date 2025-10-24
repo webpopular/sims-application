@@ -85,7 +85,7 @@ export async function sendInjuryToSmartsheet(location: string, formData: any) {
     pushCell("Experience in Role", formData.experience);
     pushCell("Division", formData.division);
     pushCell("Platform", formData.platform);
-    pushCell("LOCATION", formData.location || location);
+    pushCell("LOCATION", formData.locationOnSite || location);
     pushCell("Date of Incident", formData.dateOfIncident);
     pushCell("Incident Category/Type", formData.incidentCategory);
     pushCell("Body Part Injured", formData.injuredBodyPart);
