@@ -445,13 +445,15 @@ async function getAccessiblePlants(userEmail: string) {
 
       case 'DIVISION':
         console.log(`🏢 [LookupValuesService] Division access - filtering by division: ${userAccess.division}`);
-        accessiblePlants = findMatchingDivisionPlants(hierarchyMapping, resolvedHierarchy || '');
+        accessiblePlants = findMatchingDivisionPlants(hierarchyMapping, resolvedHierarchy.replace(/>[^>]+$/, '') || '');
         break;
 
       case 'PLANT':
         console.log(`🏭 [LookupValuesService] Plant access - showing only user's plant: ${userAccess.plant}`);
         accessiblePlants = getPlantsForUser(hierarchyMapping, userAccess.plant || '');
-        break;
+        // ✅ For plant-level users, skip further division matching
+        return accessiblePlants;
+
     }
     if (!accessiblePlants.length) {
       console.warn(`⚠️ [LookupValuesService] No plants matched for "${resolvedHierarchy}". Falling back to fuzzy division search.`);
