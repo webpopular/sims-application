@@ -240,60 +240,30 @@ export default function InjuryForm({ mode, formType, initialData, title }: Injur
     console.log('submissionId:', { submissionId: initialData?.submissionId });
     console.log('id:', { id: initialData?.id });
 
-    // ✅ SINGLE useEffect to replace both - combines RBAC with fallback to old getUserInfo
     useEffect(() => {
-        const initializeUser = async () => {
-            try {
-                // ✅ First priority: Use RBAC data if available
-                if (isReady && userAccess) {
-                    console.log('🔍 [RBAC] Submitting as user:', userAccess.email, 'Cognito Groups:', userAccess.cognitoGroups);
-                    console.log('🔍 [RBAC] User role:', userAccess.roleTitle, 'Level:', userAccess.level);
-                    console.log('🔍 [RBAC] Hierarchy:', userAccess.hierarchyString);
-                    setCreatedBy(userAccess.email || 'Unknown');
-                    return; // Exit early if RBAC data is available
-                }
+        console.log("🩵 useEffect triggered:");
+        console.log("isReady:", isReady);
+        console.log("userAccess:", userAccess);
+        console.log("lookupValues:", Object.keys(lookupValues));
 
-                // ✅ Fallback: Use old getUserInfo method if RBAC not ready
-                console.log('🔍 [FALLBACK] RBAC not ready, using getUserInfo...');
-                const userInfo = await getUserInfo();
-                console.log('🔍 [FALLBACK] Submitting as user:', userInfo.email, 'Groups:', userInfo.groups);
-                setCreatedBy(userInfo.email || userInfo.username || 'Unknown');
+        if (!isReady || !userAccess || Object.keys(lookupValues).length === 0) return;
 
-            } catch (error) {
-                console.error('❌ Failed to get user info:', error);
-                setCreatedBy('Unknown');
-            }
-        };
+        const allowedPlants = userAccess.allowedPlants || [];
 
-        // ✅ Only run when RBAC state changes or on mount
-        initializeUser();
-    }, [isReady, userAccess?.email]); // ✅ Dependencies: run when RBAC becomes ready or user changes
+        console.log("🌱 Allowed plants from RBAC:", allowedPlants);
 
+        const plantOptions = lookupValues["Plant Location"] || [];
+        console.log("🏭 All available plants:", plantOptions.map((p: any) => p.value));
 
-    async function getIdentityId() {
-        const session = await fetchAuthSession();
-        return session.identityId;
-    }
+        // Normalize both for safer comparison
+        const filteredPlants = plantOptions.filter((plant: any) =>
+            allowedPlants.some(
+                (allowed: string) =>
+                    allowed.toLowerCase().trim() === plant.value.toLowerCase().trim()
+            )
+        );
 
-
-    useEffect(() => {
-        if (initialData) {
-            console.log("🔄 Initial data detected, updating form:", initialData);
-            console.log("Current mode:", mode);
-            setFormData((prev) => ({
-                ...defaultFormState,
-                ...prev,
-                ...initialData,
-                submissionId: initialData.submissionId || prev.submissionId,
-            }));
-        }
-    }, [initialData, mode]);
-
-
-    useEffect(() => {
-        console.log("[DEBUG] Work Activity Type values:", lookupValues["Work Activity Type"]);
-
-        if (Object.keys(lookupValues).length === 0) return;
+        console.log("✅ Filtered plants:", filteredPlants.map((p: any) => p.value));
 
         setReferenceData({
             recordTypes: [],
@@ -301,15 +271,23 @@ export default function InjuryForm({ mode, formType, initialData, title }: Injur
             ageRanges: lookupValues["Age Range"] || [],
             tenureRanges: lookupValues["Experience at ITW"] || [],
             experienceLevels: lookupValues["Experience in Role"] || [],
-            locationTypes: lookupValues["Plant Location"] || lookupValues["Location"] || [],
+            locationTypes: filteredPlants,
             activityTypes: lookupValues["Work Activity Type"] || [],
             injuryTypes: lookupValues["Injury Type"] || [],
             injuredBodyParts: lookupValues["Injured Body Part"] || [],
             incidentTypes: lookupValues["Incident Type"] || [],
-            whereDidThisOccur: lookupValues["Where Did This Occur"] || []
-
+            whereDidThisOccur: lookupValues["Where Did This Occur"] || [],
         });
-    }, [lookupValues]); // ✅ Only runs when actual data is loaded
+    }, [isReady, userAccess, lookupValues]);
+    useEffect(() => {
+        console.log("👤 userAccess:", userAccess);
+        console.log("📋 allowedPlants:", userAccess?.allowedPlants);
+    }, [userAccess]);
+
+    async function getIdentityId() {
+        const session = await fetchAuthSession();
+        return session.identityId;
+    }
 
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -921,29 +899,39 @@ export default function InjuryForm({ mode, formType, initialData, title }: Injur
 
 
                 {/* Location on Site Field = Plant Location */}
+                {/* Location on Site Field = Plant Location */}
                 <div className="mb-4">
                     <label className="block tracking-wide text-gray-700 text-xs font-bold mb-2">
                         Plant Location or Employee's Primary Location
                     </label>
-                    <select
-                        value={formData.locationOnSite || ""}
-                        onChange={(e) => {
-                            if (isReadOnly) return;
-                            setHasFormChanges(true);
-                            setFormData((prev) => ({ ...prev, locationOnSite: e.target.value }));
-                        }}
-                        className="block w-full bg-gray-50 text-gray-700 border border-gray-300 rounded-md py-2 px-2 leading-tight focus:outline-none focus:bg-white focus:border-[#cb4154] focus:ring-[#b22222]"
-                    >
-                        <option value="">Select</option>
-                        {referenceData.locationTypes.map((item) => (
-                            <option key={item.id} value={item.value}>
-                                {item.label}
-                            </option>
-                        ))}
-                    </select>
+
+                    {isReady && userAccess?.allowedPlants?.length && referenceData.locationTypes.length > 0 ? (
+                        <select
+                            id="plant-location"
+                            value={formData.locationOnSite || ""}
+                            onChange={(e) => {
+                                if (isReadOnly) return;
+                                setHasFormChanges(true);
+                                setFormData((prev) => ({ ...prev, locationOnSite: e.target.value }));
+                            }}
+                            className="block w-full bg-gray-50 text-gray-700 border border-gray-300 rounded-md py-2 px-2 leading-tight focus:outline-none focus:bg-white focus:border-[#cb4154] focus:ring-[#b22222]"
+                        >
+                            <option value="">Select</option>
+                            {referenceData.locationTypes.map((plant: any) => (
+                                <option key={plant.id || plant.value} value={plant.value}>
+                                    {plant.label || plant.value}
+                                </option>
+                            ))}
+                        </select>
+                    ) : (
+                        <select
+                            disabled
+                            className="block w-full bg-gray-50 text-gray-400 border border-gray-300 rounded-md py-2 px-2"
+                        >
+                            <option>Loading locations...</option>
+                        </select>
+                    )}
                 </div>
-
-
 
 
                 {/* Date of Incident */}

@@ -463,13 +463,19 @@ async function getAccessiblePlants(userEmail: string) {
     console.log(`✅ [LookupValuesService] Found ${accessiblePlants.length} accessible plants for user`);
     console.log(`📋 [LookupValuesService] Plants: ${accessiblePlants.slice(0, 5).join(', ')}${accessiblePlants.length > 5 ? '...' : ''}`);
     let finalHierarchy = resolvedHierarchy;
-    if (!resolvedHierarchy.toLowerCase().includes((userAccess.division || '').toLowerCase())) {
-      finalHierarchy = `${resolvedHierarchy}>${userAccess.division}`;
-      console.log(`⚙️ [LookupValuesService] Appended missing division to hierarchy: ${finalHierarchy}`);
-    }
-    accessiblePlants = findMatchingDivisionPlants(hierarchyMapping, finalHierarchy || '');
 
-    return accessiblePlants;
+    if (!accessiblePlants.length) {
+      if (!resolvedHierarchy.toLowerCase().includes((userAccess.division || '').toLowerCase())) {
+        finalHierarchy = `${resolvedHierarchy}>${userAccess.division}`;
+        console.log(`⚙️ [LookupValuesService] Appended missing division to hierarchy: ${finalHierarchy}`);
+      }
+
+      // only run this fallback if earlier logic returned nothing
+      console.log('🔁 [LookupValuesService] Retrying division match as fallback...');
+      accessiblePlants = findMatchingDivisionPlants(hierarchyMapping, finalHierarchy || '');
+    }
+
+    return [...new Set(accessiblePlants)];
 
   } catch (error) {
     console.error('❌ [LookupValuesService] Error getting accessible plants:', error);
