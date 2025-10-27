@@ -65,9 +65,9 @@ export class PermissionService {
   }
 
   private defaultPerms: PermissionFlags = {
-    canReportInjury: false,
-    canReportObservation: false,
-    canSafetyRecognition: false,
+    canReportInjury: true,
+    canReportObservation: true,
+    canSafetyRecognition: true,
     canTakeFirstReportActions: false,
     canViewPII: false,
     canTakeQuickFixActions: false,

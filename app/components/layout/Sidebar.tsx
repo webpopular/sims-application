@@ -178,15 +178,17 @@ export default function Sidebar() {
   // ✅ Use the permission hook
   const { userAccess, loading } = useUserAccess();
 
-  // ✅ Permission checking logic
   const canAccessMenuItem = (item: MenuItem): boolean => {
     if (item.isHeader) return true;
     if (item.adminOnly && !isAdmin) return false;
 
-    if (userAccess?.permissions && item.permission) {
-      return userAccess.permissions[item.permission as keyof typeof userAccess.permissions] === true;
+    // Permission-based visibility
+    if (item.permission && userAccess?.permissions) {
+      const value = userAccess.permissions[item.permission as keyof typeof userAccess.permissions];
+      if (value) return true;
     }
 
+    // Group-based fallback
     if (item.fallbackToGroups && userAccess?.cognitoGroups) {
       return item.fallbackToGroups.some(group => userAccess.cognitoGroups.includes(group));
     }
@@ -209,6 +211,8 @@ export default function Sidebar() {
     setIsModalOpen(false);
     setSelectedMenuItem(null);
   };
+  console.log('[Sidebar] Permissions:', userAccess?.permissions);
+  console.log('[Sidebar] canReportInjury:', userAccess?.permissions?.canReportInjury);
 
   // ✅ Filter menu items based on permissions
   const visibleMenuItems = menuItems.filter(canAccessMenuItem);

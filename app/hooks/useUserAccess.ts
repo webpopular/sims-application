@@ -6,6 +6,13 @@ import { useAuthenticator } from '@aws-amplify/ui-react';
 import { fetchAuthSession } from 'aws-amplify/auth';
 import { getCachedUserAccess } from '@/lib/services/userAccessService';
 import {callAppSync} from "@/lib/utils/appSync";
+import {
+  extractAllPlantsFromMapping,
+  extractPlantsByPlatform,
+  extractPlantsBySegment, findMatchingDivisionPlants, getPlantsForUser
+} from "@/app/utils/hierarchy-utility";
+import hierarchyMapping from '@/hierarchy-mapping.json';
+
 
 type UserPermissions = {
   canReportInjury?: boolean;
@@ -35,11 +42,12 @@ function computePermissionsClient(groups: string[] = []) {
     canViewSafetyAlerts: true,
     canViewLessonsLearned: true,
     canViewManageOSHALogs: has('PLANT_SAFETY_MANAGER') || has('DIVISION_PLANT_HR'),
-    canReportInjury: has('PLANT_SAFETY_MANAGER') || has('PLANT_SAFETY_CHAMPIONS') || has('DIVISION_PLANT_HR'),
+    canReportInjury: true,
     canReportObservation: true,
     canSafetyRecognition: true,
     canTakeFirstReportActions: has('PLANT_SAFETY_MANAGER') || has('DIVISION_PLANT_MANAGER') || has('DIVISION_SAFETY'),
-    canTakeQuickFixActions: has('PLANT_SAFETY_MANAGER') || has('DIVISION_PLANT_HR') || has('PLANT_SAFETY_CHAMPIONS'),
+    canTakeQuickFixActions: has('PLANT_SAFETY_MANAGER') || has('DIVISION_PLANT_HR') || has('PLANT_SAFETY_CHAMPIONS') ||
+        has('DIVISION_PLANT_MANAGER') || has('DIVISION_SAFETY') || has('PLATFORM_HR') || has('DIVISION_PLANT_HR'),
     canTakeIncidentRCAActions: has('PLANT_SAFETY_MANAGER') || has('DIVISION_PLANT_HR') || has('DIVISION_OPS_DIRECTOR'),
     canPerformApprovalIncidentClosure: has('DIVISION_PLANT_MANAGER') || has('DIVISION_OPS_DIRECTOR'),
     canViewPII: has('DIVISION_HR_DIRECTOR') || has('PLATFORM_HR') || has('DIVISION_PLANT_HR'),
@@ -47,6 +55,26 @@ function computePermissionsClient(groups: string[] = []) {
     canApproveLessonsLearned: has('DIVISION_OPS_DIRECTOR') || has('ENTERPRISE_SAFETY_DIRECTOR'),
   };
 }
+
+function computeAllowedPlants(userAccess, hierarchyMapping) {
+  if (!userAccess) return [];
+
+  switch (userAccess.accessScope) {
+    case 'ENTERPRISE':
+      return extractAllPlantsFromMapping(hierarchyMapping);
+    case 'SEGMENT':
+      return extractPlantsBySegment(hierarchyMapping, userAccess.segment || '');
+    case 'PLATFORM':
+      return extractPlantsByPlatform(hierarchyMapping, userAccess.platform || '');
+    case 'DIVISION':
+      return findMatchingDivisionPlants(hierarchyMapping, userAccess.hierarchyString || '');
+    case 'PLANT':
+      return getPlantsForUser(hierarchyMapping, userAccess.plant || '');
+    default:
+      return [];
+  }
+}
+
 
 export function useUserAccess() {
   const { authStatus, user } = useAuthenticator(ctx => [ctx.authStatus, ctx.user]);
@@ -120,6 +148,7 @@ export function useUserAccess() {
       const scope = access.accessScope ?? deriveScope(level);
 
       const normalized = {
+        allowedPlants: [],
         email:           access.email,
         name:            access.name,
         roleTitle:       access.roleTitle,
@@ -135,7 +164,9 @@ export function useUserAccess() {
         cognitoGroups:   Array.isArray(access.cognitoGroups) ? access.cognitoGroups : [],
         permissions: access.permissions ?? computePermissionsClient(access.cognitoGroups),
       };
-
+      const allowedPlants = computeAllowedPlants(normalized, hierarchyMapping);
+      normalized.allowedPlants = allowedPlants;
+      normalized.permissions = normalized.permissions ?? computePermissionsClient(normalized.cognitoGroups);
       setUserAccess(normalized);
     } catch (e: any) {
       console.error('[useUserAccess] error:', e);
