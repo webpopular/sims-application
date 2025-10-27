@@ -28,7 +28,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const sheetType = (searchParams.get('sheetType') || 'SEATS_NA_INJURY') as SheetType;
-    
+    console.log('[SmartSheet type]', sheetType);
     if (!Object.keys(SMARTSHEET_CONFIG.SHEET_IDS).includes(sheetType)) {
       throw new Error(`Invalid sheet type: ${sheetType}`);
     }
