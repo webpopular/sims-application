@@ -292,17 +292,19 @@ export default function InjuryForm({ mode, formType, initialData, title }: Injur
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Enable loading immediately on click
         setIsLoading(true);
+        setError(null);
 
         console.log('🔍 [DEBUG] Current user Cognito groups:', userAccess?.cognitoGroups);
         console.log('🔍 [DEBUG] User email:', userAccess?.email);
-        console.log('🔍 [DEBUG] User role:', userAccess?.roleTitle);
-
-        const session = await fetchAuthSession();
-        const actualCognitoGroups = session.tokens?.accessToken?.payload?.['cognito:groups'] || [];
-        console.log('🔍 [DEBUG] Actual Cognito groups from session:', actualCognitoGroups);
 
         try {
+            const session = await fetchAuthSession();
+            const actualCognitoGroups = session.tokens?.accessToken?.payload?.['cognito:groups'] || [];
+            console.log('🔍 [DEBUG] Actual Cognito groups from session:', actualCognitoGroups);
+
             const user = await getCurrentUser();
             const identityId = await getIdentityId();
             const newSubmissionId = generateReportId(formType);
@@ -311,10 +313,6 @@ export default function InjuryForm({ mode, formType, initialData, title }: Injur
                 throw new Error('User access data not available. Please refresh the page.');
             }
 
-            console.log('[InjuryForm] Creating submission with hierarchy:', userAccess.hierarchyString);
-            console.log('[InjuryForm] User permissions:', userAccess.permissions);
-            console.log('[InjuryForm] Creating new submission with ID:', newSubmissionId);
-            console.log('[InjuryForm] location', formData.locationOnSite)
             const submissionData = {
                 submissionId: newSubmissionId,
                 recordType: 'INJURY_REPORT',
@@ -329,97 +327,64 @@ export default function InjuryForm({ mode, formType, initialData, title }: Injur
                 timeOfIncidentHour: formData.timeOfIncidentHour || '00',
                 timeOfIncidentMinute: formData.timeOfIncidentMinute || '00',
                 timeOfInjuryAmPm: formData.timeOfInjuryAmPm,
-                timeEmployeeBegan: formData.timeEmployeeBegan,
-                timeEmployeeBeganAmPm: formData.timeEmployeeBeganAmPm,
                 employeeId: formData.employeeId,
                 firstName: formData.firstName,
                 lastName: formData.lastName,
-                streetAddress: formData.streetAddress,
-                city: formData.city,
-                state: formData.state,
-                zipCode: formData.zipCode,
-                phoneNumber: formData.phoneNumber,
-                dateOfBirth: formData.dateOfBirth,
-                sex: formData.sex,
-                dateHired: formData.dateHired,
-                employeeType: formData.employeeType,
-                ageRange: formData.ageRange,
-                isCovidRelated: formData.isCovidRelated,
-                tenure: formData.tenure,
-                experience: formData.experience,
-                title: formData.title,
-                locationOnSite: formData.locationOnSite,
-                whereDidThisOccur: formData.whereDidThisOccur,
-                workAreaDescription: formData.workAreaDescription,
-                workActivityCategory: formData.workActivityCategory,
-                incidentDescription: formData.incidentDescription,
-                injuryDescription: formData.injuryDescription,
-                activityType: formData.activityType,
-                injuryType: formData.injuryType,
-                injuredBodyPart: formData.injuredBodyPart,
-                incidentType: formData.incidentType,
-                createdBy: createdBy,
+                createdBy,
                 owner: userAccess?.email || createdBy,
                 createdAt: new Date().toISOString(),
-                eventApprovaldueDate: formData.eventApprovaldueDate,
-                eventApprovalassignedTo: formData.eventApprovalassignedTo,
-                eventApprovalStatus: EventApprovalEnum.NotStarted,
-                eventApprovalDescription: formData.eventApprovalDescription,
-                eventApprovalNotes: formData.eventApprovalNotes,
-                eventApprovaluploadedAt: formData.eventApprovaluploadedAt,
-                eventApprovaluploadedBy: formData.eventApprovaluploadedBy,
-                documents: [],
             };
-
-            console.log('📦 Payload being submitted:', JSON.stringify(submissionData, null, 2));
 
             const client = await getDataClient();
             const mutation = `
-              mutation CreateSubmission($input: CreateSubmissionInput!) {
-                createSubmission(input: $input) {
-                  id
-                  submissionId
-                  title
-                }
-              }
-            `;
+      mutation CreateSubmission($input: CreateSubmissionInput!) {
+        createSubmission(input: $input) {
+          id
+          submissionId
+          title
+        }
+      }
+    `;
+
             const response = await callAppSync(mutation, { input: submissionData });
-            console.log('🟢 Raw response from create:', response);
 
             if (!response?.data) {
-                console.error('❌ No data returned from submission create. Full response:', response);
-                throw new Error('Submission failed: No data returned.');
+                throw new Error('Submission failed: No data returned from API.');
             }
 
             console.log('✅ Submission created successfully:', response.data);
 
-            setFormData((prev) => ({
+            setFormData(prev => ({
                 ...prev,
-                id: response.data?.id ?? prev.id,
+                id: response.data.id ?? prev.id,
                 submissionId: newSubmissionId,
                 status: 'Draft',
-                documents: [],
             }));
+
             try {
-                // ✅ Push to Smartsheet after successful submission
                 await sendInjuryToSmartsheet(formData.locationOnSite, submissionData);
-                console.log('🟢 Successfully synced to Smartsheet.');
+                console.log('✅ Successfully synced to Smartsheet.');
             } catch (err) {
                 console.error('⚠️ Smartsheet sync failed:', err);
             }
+
+            // Stop loading before modals or navigation
             setHasFormChanges(false);
             setShowSuccessModal(true);
             setShowDocsModal(true);
 
-            console.log('[InjuryForm] Submission successful. Redirecting...');
+            // Add slight delay for smoother UX before navigation
+            setTimeout(() => {
+                setIsLoading(false);
+                router.push('/');
+            }, 1000);
+
         } catch (error) {
             console.error('❌ Submission error:', error);
+            setIsLoading(false); // Stop loading immediately on fail
 
             if (error instanceof Error) {
-                if (
-                    error.message.includes('UnauthorizedException') ||
-                    error.message.includes('Access Denied')
-                ) {
+                if (error.message.includes('UnauthorizedException') || error.message.includes('Access Denied')) {
                     setError('You do not have permission to create submissions. Please contact your administrator.');
                 } else if (error.message.includes('Invalid login token')) {
                     setError('Your session has expired. Please log in again.');
@@ -430,11 +395,8 @@ export default function InjuryForm({ mode, formType, initialData, title }: Injur
             } else {
                 setError('An unexpected error occurred. Please try again.');
             }
-        } finally {
-            setIsLoading(false);
         }
     };
-
 
 
     const handleSubmitxxx = async (e: React.FormEvent) => {
@@ -564,6 +526,7 @@ export default function InjuryForm({ mode, formType, initialData, title }: Injur
 
         } catch (error) {
             console.error('❌ Submission error:', error);
+            setIsLoading(false);
 
             if (error instanceof Error) {
                 if (error.message.includes('UnauthorizedException') ||
@@ -580,7 +543,6 @@ export default function InjuryForm({ mode, formType, initialData, title }: Injur
                 setError('An unexpected error occurred. Please try again.');
             }
         } finally {
-            setIsLoading(false);
         }
     };
 
@@ -643,9 +605,9 @@ export default function InjuryForm({ mode, formType, initialData, title }: Injur
             await handleSaveChanges();
             callback();
         } catch (error) {
+            setIsLoading(false);
             console.error('[InjuryForm] Error saving changes before continuing:', error);
         } finally {
-            setIsLoading(false);
         }
     };
 
@@ -709,8 +671,12 @@ export default function InjuryForm({ mode, formType, initialData, title }: Injur
         if (mode === 'create') {
             return (
                 <div className="flex justify-end gap-4 pt-6">
-                    <button className="modal-button-primary" type="submit">
-                        Submit Injury Report
+                    <button
+                        className={`modal-button-primary ${isLoading ? 'opacity-60 cursor-not-allowed' : ''}`}
+                        type="submit"
+                        disabled={isLoading}
+                    >
+                        {isLoading ? 'Submitting...' : 'Submit Injury Report'}
                     </button>
                 </div>
             );
@@ -799,6 +765,7 @@ export default function InjuryForm({ mode, formType, initialData, title }: Injur
             }
         } catch (error) {
             console.error('[InjuryForm] Error saving changes:', error);
+            setIsLoading(false);
             if (error instanceof Error) {
                 if (error.message.includes('UnauthorizedException') ||
                     error.message.includes('Access Denied')) {
@@ -813,7 +780,6 @@ export default function InjuryForm({ mode, formType, initialData, title }: Injur
                 toast.error('Failed to save changes.');
             }
         } finally {
-            setIsLoading(false);
         }
     };
 
@@ -869,6 +835,7 @@ export default function InjuryForm({ mode, formType, initialData, title }: Injur
                 toast.success(saveAsDraft ? 'Draft saved successfully!' : 'Changes saved successfully!');
             }
         } catch (error) {
+            setIsLoading(false);
             console.error('[InjuryForm] Error saving changes:', error);
             if (error instanceof Error) {
                 if (error.message.includes('UnauthorizedException') ||
@@ -881,7 +848,6 @@ export default function InjuryForm({ mode, formType, initialData, title }: Injur
                 setError('Failed to save changes.');
             }
         } finally {
-            setIsLoading(false);
         }
     };
 
@@ -1631,8 +1597,12 @@ export default function InjuryForm({ mode, formType, initialData, title }: Injur
                         {!isReadOnly && (
                             mode === 'create' ? (
                                 <div className="flex justify-end gap-4 pt-6">
-                                    <button className="modal-button-primary" type="submit">
-                                        Submit Injury Report
+                                    <button
+                                        className={`modal-button-primary ${isLoading ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                        type="submit"
+                                        disabled={isLoading}
+                                    >
+                                        {isLoading ? 'Submitting...' : 'Submit Injury Report'}
                                     </button>
                                 </div>
                             ) : mode.startsWith('investigate') ? (
