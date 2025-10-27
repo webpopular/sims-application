@@ -33,5 +33,5 @@ export interface UserPermissions {
     permissions: UserPermissions;
     accessibleHierarchies: string[];
     accessScope: 'ENTERPRISE' | 'SEGMENT' | 'PLATFORM' | 'DIVISION' | 'PLANT';
+    allowedPlants: string[];
   }
-  

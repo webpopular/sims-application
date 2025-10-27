@@ -12,7 +12,25 @@ import {
   extractPlantsBySegment, findMatchingDivisionPlants, getPlantsForUser
 } from "@/app/utils/hierarchy-utility";
 import hierarchyMapping from '@/hierarchy-mapping.json';
+import {UserAccess} from "@/app/types/permissions";
 
+interface HierarchyMapping {
+  segments: Record<string, Segment>;
+  lastUpdated?: string;
+  version?: string;
+}
+
+interface Segment {
+  platforms: Record<string, Platform>;
+}
+
+interface Platform {
+  regions: Record<string, Region>;
+}
+
+interface Region {
+  divisions: Record<string, string[]>;
+}
 
 type UserPermissions = {
   canReportInjury?: boolean;
@@ -56,7 +74,7 @@ function computePermissionsClient(groups: string[] = []) {
   };
 }
 
-function computeAllowedPlants(userAccess, hierarchyMapping) {
+function computeAllowedPlants(userAccess: UserAccess, hierarchyMapping: HierarchyMapping) {
   if (!userAccess) return [];
 
   switch (userAccess.accessScope) {
@@ -147,7 +165,7 @@ export function useUserAccess() {
       const level = access.level ?? 5;
       const scope = access.accessScope ?? deriveScope(level);
 
-      const normalized = {
+      const normalized: UserAccess = {
         allowedPlants: [],
         email:           access.email,
         name:            access.name,
@@ -163,6 +181,7 @@ export function useUserAccess() {
         isActive:        access.isActive !== false,
         cognitoGroups:   Array.isArray(access.cognitoGroups) ? access.cognitoGroups : [],
         permissions: access.permissions ?? computePermissionsClient(access.cognitoGroups),
+        accessibleHierarchies: access.accessibleHierarchies ?? [],
       };
       const allowedPlants = computeAllowedPlants(normalized, hierarchyMapping);
       normalized.allowedPlants = allowedPlants;
