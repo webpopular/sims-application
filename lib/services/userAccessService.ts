@@ -40,7 +40,9 @@ export interface UserAccess {
   permissions: UserPermissions;
   // @ts-ignore
   accessScope: AccessScope;
+  allowedPlants: string[];
 }
+
 export type AccessScope = 'ENTERPRISE' | 'SEGMENT' | 'PLATFORM' | 'DIVISION' | 'PLANT';
 
 export const levelToScope = (level: number): AccessScope =>
@@ -100,6 +102,7 @@ function normalizeUser(u: any): Omit<UserAccess, 'permissions' | 'accessScope'> 
     isActive: u?.isActive !== false,
     accessScope: levelToScope(level),
     permissions: defaultPerms,
+    allowedPlants: Array.isArray(u?.allowedPlants) ? (u.allowedPlants as string[]) : ([] as string[]),
   };
 }
 
