@@ -64,9 +64,8 @@ async function getSmartsheetColumnMap(sheetId: string): Promise<Record<string, C
 }
 
 /** Send a new injury record to Smartsheet */
-export async function sendInjuryToSmartsheet(location: string, formData: any) {
-    console.log('[Smartsheet] location', location);
-    const division = getDivisionByLocation(location);
+export async function sendInjuryToSmartsheet(formData: any) {
+    const division = getDivisionByLocation(formData.locationOnSite);
     const sheetId = getSheetIdByDivision(division);
     const columns = await getSmartsheetColumnMap(sheetId);
     const cells: any[] = [];
