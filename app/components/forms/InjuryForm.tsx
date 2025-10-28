@@ -362,7 +362,8 @@ export default function InjuryForm({ mode, formType, initialData, title }: Injur
             }));
 
             try {
-                await sendInjuryToSmartsheet(formData.locationOnSite, submissionData);
+                console.log('[Smartsheet] formData', formData);
+                await sendInjuryToSmartsheet(formData);
                 console.log('✅ Successfully synced to Smartsheet.');
             } catch (err) {
                 console.error('⚠️ Smartsheet sync failed:', err);

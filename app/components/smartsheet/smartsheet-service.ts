@@ -4,9 +4,47 @@ const COLUMN_CACHE: Record<string, Record<string, ColumnMeta>> = {};
 
 /** Each plant or location sheet id */
 export const SHEET_IDS: Record<string, string> = {
-    TROY: "2662923852795780",
-    // Add more sheets as needed
+    DELTAR: "2662923852795780",
+    DRAWFORM: "244707658518404",
 };
+
+/** Location → Division mapping */
+export const LOCATION_TO_DIVISION: Record<string, string> = {
+    "CHIPPEWA FALLS": "DELTAR",
+    "CHIPPEWA FALLS, WI": "DELTAR",
+    "TROY": "DELTAR",
+    "TROY, MI": "DELTAR",
+    "FRANKFORT": "DELTAR",
+    "FRANKFORT, KY": "DELTAR",
+};
+
+function getDivisionByLocation(location: string): string {
+    const locKey = location?.trim().toUpperCase();
+    const division = LOCATION_TO_DIVISION[locKey];
+    if (!division) {
+        console.warn(`⚠️ Unknown location "${location}", defaulting to DELTAR`);
+        return "DELTAR";
+    }
+    return division;
+}
+
+
+function getSheetIdByDivision(division?: string): string {
+    if (!division) {
+        console.warn("⚠️ No division provided; defaulting to DELTAR");
+        return SHEET_IDS.DELTAR;
+    }
+
+    const key = division.trim().toUpperCase();
+    const sheetId = SHEET_IDS[key];
+
+    if (!sheetId) {
+        console.warn(`⚠️ Unknown division "${division}", defaulting to DELTAR`);
+        return SHEET_IDS.DELTAR;
+    }
+
+    return sheetId;
+}
 
 /** Fetch live column IDs from our API (server-side proxy) */
 async function getSmartsheetColumnMap(sheetId: string): Promise<Record<string, ColumnMeta>> {
@@ -26,8 +64,9 @@ async function getSmartsheetColumnMap(sheetId: string): Promise<Record<string, C
 }
 
 /** Send a new injury record to Smartsheet */
-export async function sendInjuryToSmartsheet(location: string, formData: any) {
-    const sheetId = SHEET_IDS[location.toUpperCase()] || SHEET_IDS.TROY;
+export async function sendInjuryToSmartsheet(formData: any) {
+    const division = getDivisionByLocation(formData.locationOnSite);
+    const sheetId = getSheetIdByDivision(division);
     const columns = await getSmartsheetColumnMap(sheetId);
     const cells: any[] = [];
 
