@@ -23,8 +23,17 @@ import { PermissionGate } from '@/app/components/permission/PermissionGate';
 
 import StatusChoiceModal from "@/app/components/modals/StatusChoiceModal";
 //import { getUserDataAccess } from '@/app/utils/dataAccessControl';
-
-const client = generateClient<Schema>();
+import { callAppSync } from '@/lib/utils/appSync';
+import { initAmplify } from '@/app/amplify-init';
+initAmplify();
+let dataClient: any = null;
+async function getDataClient() {
+  if (!dataClient) {
+    const mod = await import('aws-amplify/data');
+    dataClient = mod.generateClient<any>();
+  }
+  return dataClient;
+}
 
 // Define interfaces for the component props and form data
 interface ObservationFormData {
@@ -321,14 +330,12 @@ export default function ObservationReportForm({
       const user = await getCurrentUser();
       const identityId = await getIdentityId();
       const newSubmissionId = generateReportId();
+
       if (!userAccess) {
         throw new Error('User access data not available. Please refresh the page.');
-    }
+      }
 
-    console.log('[ObservationForm] Creating submission with hierarchy:', userAccess.hierarchyString);
-    console.log('[ObservationForm] User permissions:', userAccess.permissions);
-    console.log('[ObservationForm] Creating new submission with ID:', newSubmissionId);
-
+      console.log('[ObservationForm] Creating submission with hierarchy:', userAccess.hierarchyString);
 
       const submissionData = {
         submissionId: newSubmissionId,
@@ -360,36 +367,40 @@ export default function ObservationReportForm({
         submissionType: 'Direct',
       };
 
-      console.log('[ObservationReportForm] Submission data:', submissionData);
+      const mutation = `
+      mutation CreateSubmission($input: CreateSubmissionInput!) {
+        createSubmission(input: $input) {
+          id
+          submissionId
+          title
+        }
+      }
+    `;
 
-      const response = await client.models.Submission.create(submissionData);
+      const response = await callAppSync(mutation, { input: submissionData });
 
-      if (!response.data) {
+      if (!response?.data?.createSubmission) {
         throw new Error('Submission failed: No data returned.');
       }
 
-      console.log('[ObservationReportForm] Submission response:', response.data);
+      console.log('✅ Observation created successfully:', response.data.createSubmission);
 
       setFormData((prev) => ({
         ...prev,
-        id: response.data?.id || newSubmissionId,
+        id: response.data.createSubmission.id,
         submissionId: newSubmissionId,
         status: 'Draft',
         documents: [],
-        createdAt: response.data?.createdAt || new Date().toISOString(),
-        updatedAt: response.data?.updatedAt || new Date().toISOString(),
       }));
 
       setSubmission({
         success: true,
-        reportId: newSubmissionId
+        reportId: newSubmissionId,
       });
 
       setHasFormChanges(false);
       setShowSuccessModal(true);
       setShowDocsModal(true);
-
-      console.log('[ObservationReportForm] Submission successful with ID:', response.data?.id);
     } catch (error) {
       console.error('[ObservationReportForm] Submission Error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
@@ -399,31 +410,16 @@ export default function ObservationReportForm({
     }
   };
 
+
   const handleSaveChanges = async (saveAsDraft: boolean = false) => {
     try {
       setIsLoading(true);
       const userInfo = await getUserInfo();
       const updatedBy = userInfo.email || userInfo.username || 'Unknown';
 
-      console.log('[ObservationReportForm] Saving changes...', saveAsDraft ? 'As Draft' : 'Normal');
-
-      let recordId = formData.id;
-
+      let recordId = formData.id || formData.submissionId || searchParams.get('id');
       if (!recordId) {
-        recordId = formData.submissionId;
-        console.log('[ObservationReportForm] Using submissionId as fallback ID:', recordId);
-      }
-
-      if (!recordId) {
-        const urlId = searchParams.get('id');
-        if (urlId) {
-          recordId = urlId;
-          console.log('[ObservationReportForm] Using URL ID as fallback:', recordId);
-        }
-      }
-
-      if (!recordId) {
-        throw new Error('No record ID found. Cannot update record without an ID. Please refresh the page and try again.');
+        throw new Error('No record ID found. Cannot update record without an ID.');
       }
 
       const allowedFields: (keyof ObservationFormData)[] = [
@@ -435,7 +431,7 @@ export default function ObservationReportForm({
 
       const updateData: any = {
         id: recordId,
-        updatedBy: updatedBy,
+        updatedBy,
         updatedAt: new Date().toISOString(),
       };
 
@@ -445,40 +441,32 @@ export default function ObservationReportForm({
         }
       });
 
-      if (saveAsDraft) {
-        updateData.status = 'Draft';
+      if (saveAsDraft) updateData.status = 'Draft';
+
+      const mutation = `
+      mutation UpdateSubmission($input: UpdateSubmissionInput!) {
+        updateSubmission(input: $input) {
+          id
+          submissionId
+          status
+          updatedAt
+        }
+      }
+    `;
+
+      const response = await callAppSync(mutation, { input: updateData });
+
+      if (!response?.data?.updateSubmission) {
+        throw new Error('No data returned from update.');
       }
 
-      console.log('[ObservationReportForm] Update data (filtered):', updateData);
-
-      const response = await client.models.Submission.update(updateData);
-
-      console.log('[ObservationReportForm] Update response:', response);
-
-      if (!response.errors || response.errors.length === 0) {
-        console.log('[ObservationReportForm] Changes saved successfully');
-        toast.success(saveAsDraft ? 'Draft saved successfully!' : 'Changes saved successfully!');
-        setHasFormChanges(false);
-
-        setFormData(prev => ({
-          ...prev,
-          id: recordId,
-          updatedBy: updatedBy,
-          updatedAt: new Date().toISOString()
-        }));
-      } else {
-        console.error('[ObservationReportForm] Update errors:', response.errors);
-        throw new Error(`Update failed: ${response.errors?.map(e => e.message).join(', ')}`);
-      }
+      console.log('✅ Observation updated successfully:', response.data.updateSubmission);
+      toast.success(saveAsDraft ? 'Draft saved successfully!' : 'Changes saved successfully!');
+      setHasFormChanges(false);
     } catch (error) {
       console.error('[ObservationReportForm] Error saving changes:', error);
       if (error instanceof Error) {
-        if (error.message.includes('UnauthorizedException') ||
-          error.message.includes('Access Denied')) {
-          toast.error('You do not have permission to update this submission.');
-        } else {
-          toast.error(`Failed to save changes: ${error.message}`);
-        }
+        toast.error(`Failed to save changes: ${error.message}`);
       } else {
         toast.error('Failed to save changes.');
       }
@@ -486,6 +474,7 @@ export default function ObservationReportForm({
       setIsLoading(false);
     }
   };
+
 
   const saveChangesAndContinue = async (callback: () => void) => {
     if (callback === (() => setShowStatusChoiceModal(true)) && !canTakeFirstReportActions) {
@@ -517,63 +506,51 @@ export default function ObservationReportForm({
 
 
   // Alternative approach - Update only documents field
-const handleDocumentsSave = async (sectionName: string, docs: Document[]) => {
-  try {
-    const recordId = formData.id || formData.submissionId;
+  const handleDocumentsSave = async (sectionName: string, docs: Document[]) => {
+    try {
+      const recordId = formData.id || formData.submissionId;
+      if (!recordId) throw new Error('No record ID available for document update');
 
-    if (!recordId) {
-      throw new Error('No record ID available for document update');
+      const updateInput = {
+        id: recordId,
+        documents: docs.map(doc => ({
+          docId: doc.docId || '',
+          fileName: doc.fileName || '',
+          s3Key: doc.s3Key || '',
+          uploadedAt: doc.uploadedAt || new Date().toISOString(),
+          uploadedBy: doc.uploadedBy || userAccess?.email || 'Unknown',
+          size: doc.size || 0,
+          type: doc.type || 'application/octet-stream',
+          hasPII: doc.hasPII || false,
+        })),
+      };
+
+      const mutation = `
+      mutation UpdateSubmission($input: UpdateSubmissionInput!) {
+        updateSubmission(input: $input) {
+          id
+          submissionId
+          documents {
+            fileName
+            s3Key
+          }
+        }
+      }
+    `;
+
+      const response = await callAppSync(mutation, { input: updateInput });
+
+      if (response?.data?.updateSubmission) {
+        console.log('✅ Documents updated successfully:', response.data.updateSubmission);
+        toast.success('Documents updated successfully!');
+      } else {
+        throw new Error('No data returned from update.');
+      }
+    } catch (error) {
+      console.error('[handleDocumentsSave] Failed to update documents:', error);
+      toast.error('Failed to update documents. Please try again.');
     }
-
-    // ✅ Store original documents for potential revert
-    const originalDocuments = formData.documents || [];
-
-    // ✅ Update documents state immediately for UI responsiveness
-    setFormData(prev => ({ ...prev, documents: docs }));
-
-    // ✅ MINIMAL UPDATE - Only update documents field
-    const updateInput = {
-      id: recordId,
-      documents: docs.map(doc => ({
-        docId: doc.docId || '',
-        fileName: doc.fileName || '',
-        s3Key: doc.s3Key || '',
-        uploadedAt: doc.uploadedAt || new Date().toISOString(),
-        uploadedBy: doc.uploadedBy || userAccess?.email || 'Unknown',
-        size: doc.size || 0,
-        type: doc.type || 'application/octet-stream',
-        hasPII: doc.hasPII || false
-      }))
-      // ✅ Remove updatedAt and updatedBy to avoid authorization issues
-    };
-
-    console.log('[handleDocumentsSave] Minimal update input:', updateInput);
-
-    const response = await client.models.Submission.update(updateInput);
-
-    if (response.data && (!response.errors || response.errors.length === 0)) {
-      console.log('[handleDocumentsSave] ✅ Documents updated successfully');
-      toast.success('Documents updated successfully!');
-    } else if (response.errors && response.errors.length > 0) {
-      console.error('[handleDocumentsSave] Update errors:', response.errors);
-      
-      // ✅ Show specific error message
-      const errorMessage = response.errors.map(e => e.message).join(', ');
-      toast.error(`Failed to update documents: ${errorMessage}`);
-      
-      // ✅ Revert documents state
-      setFormData(prev => ({ ...prev, documents: originalDocuments }));
-    }
-  } catch (error) {
-    console.error('[handleDocumentsSave] Failed to update documents:', error);
-    toast.error('Failed to update documents. Please try again.');
-    
-    // ✅ Revert documents state
-    const originalDocuments = formData.documents || [];
-    setFormData(prev => ({ ...prev, documents: originalDocuments }));
-  }
-};
- 
+  };
 
 
   const handleReject = async (reason: string) => {
@@ -587,14 +564,14 @@ const handleDocumentsSave = async (sectionName: string, docs: Document[]) => {
     try {
       const userInfo = await getUserInfo();
       const rejectedBy = userInfo.email || userInfo.username || 'Unknown';
-
+      const client = await getDataClient();
       await client.models.Submission.update({
         id: recordId,
         status: "Rejected",
         rejectionReason: reason,
         rejectedAt: new Date().toISOString(),
         rejectedBy: rejectedBy
-      });
+      }, { authMode: 'userPool' });
 
       setShowRejectModal(false);
       setShowRejectSuccessModal(true);
@@ -613,11 +590,12 @@ const handleDocumentsSave = async (sectionName: string, docs: Document[]) => {
     }
 
     try {
+      const client = await getDataClient();
       await client.models.Submission.update({
         id: recordId,
         status: "Completed",
         investigationStatus: "Resolved Immediately"
-      });
+      }, { authMode: 'userPool' });
 
       setShowStatusChoiceModal(false);
       toast.success("Observation marked as resolved immediately!");
@@ -637,11 +615,12 @@ const handleDocumentsSave = async (sectionName: string, docs: Document[]) => {
     }
 
     try {
+      const client = await getDataClient();
       await client.models.Submission.update({
         id: recordId,
         status: "Open",
         investigationStatus: "Quick Fix Action Needed"
-      });
+      }, { authMode: 'userPool' });
 
       setShowStatusChoiceModal(false);
       toast.success("Observation marked for quick fix!");
@@ -661,11 +640,12 @@ const handleDocumentsSave = async (sectionName: string, docs: Document[]) => {
     }
 
     try {
+      const client = await getDataClient();
       await client.models.Submission.update({
         id: recordId,
         status: "Observation with RCA - Open",
         investigationStatus: "RCA YET_TO_START"
-      });
+      }, { authMode: 'userPool' });
 
       setShowStatusChoiceModal(false);
       toast.success("Observation marked for further action!");

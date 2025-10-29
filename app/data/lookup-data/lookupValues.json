@@ -1,4 +1,3 @@
-
 {
   "Age Range": [
     "18-25",
@@ -65,11 +64,11 @@
     "Hip",
     "Internal Injury or Illness",
     "Knee",
-    "Leg/Buttocks ",
+    "Leg/Buttocks",
     "Multiple Body Parts",
     "Neck",
-    "Shoulder ",
-    "Wrist ",
+    "Shoulder",
+    "Wrist",
     "Other"
   ],
   "Injury Type": [
@@ -96,6 +95,22 @@
     "Temperature - Heat Stress Injury",
     "Other"
   ],
+  "Where Did This Occur": [
+    "Customer or Vendor's Facility",
+    "Maintenance/Shop/Service",
+    "Manufacturing Space",
+    "Office Space or Lobby",
+    "Parking Lot/Grounds",
+    "Plant Utility Area ",
+    "Quality or Lab",
+    "Roof",
+    "Shipping/Receiving Areas",
+    "Tool Room",
+    "Travel - Airport, Hotel, Etc.",
+    "Travel - Within a Vehicle ",
+    "Warehouse/Storage",
+    "Other"
+  ],
   "Plant Location": [
     "Aguascalientes, MX",
     "Hwaseong, KR, AOC Fasteners",
@@ -117,7 +132,7 @@
     "Creglingen, DE",
     "Darlington, WI",
     "Decatur, AL",
-    "Frankfort (21601)",
+    "Frankfort (21555)",
     "Velk\u00e1 B\u00edte\u0161, CZ, Drawform",
     "Elgin, IL",
     "Elmhurst, IL",
@@ -125,7 +140,7 @@
     "Enkenbach, DE, EUGA",
     "Hebron, IL",
     "Bredaryd, SE",
-    "Frankfort (21555)",
+    "Frankfort (21701)",
     "Beauchamp, FR",
     "Basingstoke, GB",
     "Genay, FR",
@@ -151,7 +166,7 @@
     "Mokena, IL",
     "Monterrey, MX",
     "R\u00f6ttingen, DE, Motion",
-    "Frankfort (21701)",
+    "Frankfort (21601)",
     "Naugatuck, CT",
     "Ningbo, CN",
     "Penang, MY",
@@ -192,10 +207,10 @@
     "Coiling",
     "Cutting",
     "Machine Set Up",
-    "Maintenance & Repair Activity ",
+    "Maintenance & Repair Activity",
     "Manual Material Handling",
     "Operating a Forklift or Similar",
-    "Operating Equipment ",
+    "Operating Equipment",
     "Packing Goods By Hand",
     "Retrieving Goods By Hand",
     "Participating in a Site Visit, Safety  Inspection, or Similar",
@@ -207,5 +222,161 @@
     "Using a Grinder",
     "Using Stairs/Ladder/Platform",
     "Walking"
-  ]
+  ],
+  "Root Cause": [
+    "Failure to Identify and Mitigate Risk",
+    "Failure to Peform Maintenance or Repair",
+    "Inadequate Management Commitment",
+    "Insufficient Documentation and Recordkeeping",
+    "Insufficient Staff, Expertise, or Resources",
+    "Ineffective Process Controls and Monitoring",
+    "Poor Communication and Coordination",
+    "Lack of Employee Training and/or Awareness",
+    "Willful Safety Violation"
+  ],
+  "Type of Concern": [
+    "Near Miss",
+    "Unsafe Act",
+    "Unsafe Condition",
+    "Property Damage"
+  ],
+  "Priority Types":[
+    "Level 1 - This issue was resolved on the spot",
+    "Level 2 - Help is needed evaluating a minor safety concern",
+    "Level 3 - Help is needed evaluating a major safety concern"
+  ],
+  "Direct Cause Groups":[
+    "Chemicals",
+    "Confined Spaces",
+    "Emergency Response",
+    "Employee Actions",
+    "Energy Control",
+    "Environment",
+    "Material Movement",
+    "Machine Guarding",
+    "Machines, Tools, and Equipment",
+    "Motor Vehicle Incident",
+    "PPE",
+    "Same Level Falls, Slips, and Trips",
+    "Work Stations",
+    "Working At Heights",
+    "Other"
+  ],
+  "Direct Cause Group": {
+    "Chemicals": [
+      "Safety Data Sheet not available/not accessible",
+      "Secondary container not properly labelled or used",
+      "Chemical hazard not identified, communicated, or understood",
+      "Chemical caused fire or equipment damage",
+      "Chemical caused unexpected reaction or byproduct",
+      "Unexpected chemical in the work place or process",
+      "Bulk chemical not properly labelled",
+      "Chemical not properly stored or secured",
+      "Chemical not properly handled",
+      "Chemical not properly shipped",
+      "Improper use of chemical",
+      "Leak from broken or faulty tank, container, valve, pipe, hose, or similar"
+    ],
+    "Confined Spaces": [
+      "Confined space hazard not identified, communicated, or understood",
+      "Failure to prevent entry to a known confined space",
+      "Failure to mitigate known hazards during a planned confined space entry",
+      "Failure to mitigate unknown hazards during a planned confined space entry"
+    ],
+    "Emergency Response": [
+      "Failure to take proper actions during an emergency situation",
+      "Failure to evacuate a work area or facility",
+      "Failure to notify management of an emergency",
+      "Failure to notify fire, police, EMS, or similar agency of an emergency",
+      "Tools, equipment, or area required for emergency response failed, missing, or inadequate"
+    ],
+    "Employee Actions": [
+      "Employee was not authorized for job or task",
+      "Employee performed an unsafe act or created an unsafe condition",
+      "Employee's personal belongings or electronics created a hazard",
+      "Dress or similar code violation caused injury",
+      "Improper use or failure to use PPE per procedures and training",
+      "Employee was not fit for duty",
+      "Coworker or manager provided incorrect direction",
+      "Employee did not \"Stop Work\" during an unexpected event or unsure of safety",
+      "Management  did not \"Stop Work\" during an unexpected event or unsure of safety"
+    ],
+    "Energy Control": [
+      "Employee failed to control energy during a MAINTENANCE activity",
+      "Employee failed to control energy during a ROUTINE activity",
+      "Employee failed to control energy during a START UP or RESTART activity",
+      "Machine or device failed to automatically control energy during a MAINTENANCE activity",
+      "Machine or device failed to automatically control energy during a ROUTINE activity",
+      "Machine or device failed to control energy during a START UP or RESTART activity"
+    ],
+    "Environment": [
+      "Indoor Environment - Heat, Cold, Poor Lighting, Nosie, Air Quality,  Etc.",
+      "Outdoor Environment - Heat, Cold, Rain, Snow, Wind, Ice, Etc."
+    ],
+    "Material Movement": [
+      "Inappropriate loading or unloading of truck or trailer",
+      "Inappropriate loading or unloading of racking or similar",
+      "Unsafe truck or trailer",
+      "Incorrect storage or placement of materials or dunnage",
+      "Unsafe operation (use, route, speed, etc.) of forklift, push cart, crane, or similar equipment",
+      "Failure of forklift, push cart, crane, dock equipment, or similar equipment  (Mechanical)",
+      "Failure of forklift, push cart, crane, dock equipment, or similar equipment (Controls)",
+      "Difficult to use or confusing machine controls",
+      "Manual lifting or material handing WITHIN the boundaries of their job description",
+      "Manual lifting or material handing BEYOND the boundaries of their job description"
+    ],
+    "Machine Guarding": [
+      "Person overrode safety devices",
+      "Person removed existing physical guarding",
+      "Physical hazards were not properly guarded/installed",
+      "Physical guarding created additional hazards",
+      "Light curtains or interlocks removed or bypassed",
+      "Light curtains or interlocks should have been installed",
+      "Light curtains or interlocks created additional hazards"
+    ],
+    "Machines, Tools, and Equipment": [
+      "Failure of machine or process  -  Electronic controls, display, or similar",
+      "Failure of machine or process - Mechanical, hydraulics, pneumatic, valves, etc.",
+      "Intentional improper use of machines, tools, equipment, etc.",
+      "Unintentional improper use of machines, tools, equipment, etc.",
+      "Knowingly using defective equipment",
+      "Unknowingly using defective equipment",
+      "Correct tool not available/not provided"
+    ],
+    "Motor Vehicle Incident": [
+      "Crash involving an auto, truck, or similar on-road vehicle"
+    ],
+    "PPE": [
+      "PPE was not made available to employee",
+      "PPE was not effective or correct for hazard",
+      "PPE provided was the wrong size",
+      "Improper use or failure to use PPE per procedures and training"
+    ],
+    "Same Level Falls, Slips, and Trips": [
+      "Poor housekeeping (excludes snow and ice)",
+      "Snow and ice",
+      "Carrying too many items",
+      "Tripped on item in an established walk way",
+      "Tripped while taking an improper walk way (behind machines, through racking, etc.)",
+      "Other direct cause for slip, trip, or fall",
+      "Damaged Floor, uneven work surface, unmarked steps"
+    ],
+    "Work Stations": [
+      "Difficult to use or confusing machine controls",
+      "Poor ergonomics",
+      "Hand and power tools - worn, damaged, or similar"
+    ],
+    "Working At Heights": [
+      "Improper climbing on racking, equipment, or dunnage, or similar",
+      "Failure to use fall arrest equipment",
+      "Failure to use or failure of failings or similar",
+      "Unauthorized access to a fall hazard",
+      "Failure to guard a hole, skylight, or similar"
+    ],
+    "Other": [
+      "Actions by contractor directly led to injury",
+      "Actions by another party outside the Control of ITW led to injury",
+      "Other - Not in List. Contact EHS Department for Guidance"
+    ]
+  }
 }
