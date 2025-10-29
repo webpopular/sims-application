@@ -6,6 +6,7 @@ import {type Schema} from "@/amplify/data/schema";
 import {getUserAccess} from './userAccessService';
 import hierarchyMapping from '../../hierarchy-mapping.json';
 import hierarchyAliases from '../../hierarchy-aliases.json';
+import lookupDataLocal from "@/app/data/lookup-data/lookupValues.json";
 
 const client = generateClient<Schema>();
 
@@ -220,17 +221,17 @@ function extractAllPlantsFromMapping(hierarchy: any): string[] {
 function getPlantsForUser(hierarchy: any, userPlant: string): string[] {
   try {
     const allPlants = extractAllPlantsFromMapping(hierarchy);
-    
+
     // Find plants that contain the user's plant name (case insensitive)
-    const matchingPlants = allPlants.filter(plant => 
+    const matchingPlants = allPlants.filter(plant =>
       plant.toLowerCase().includes(userPlant.toLowerCase()) ||
       userPlant.toLowerCase().includes(plant.toLowerCase())
     );
-    
+
     console.log(`🔍 [LookupValuesService] User plant "${userPlant}" matched: ${matchingPlants.join(', ')}`);
-    
+
     return matchingPlants.length > 0 ? matchingPlants : [];
-    
+
   } catch (error) {
     console.error('❌ [LookupValuesService] Error getting plants for user:', error);
     return [];
@@ -390,7 +391,7 @@ async function getAccessiblePlants(userEmail: string) {
 
   try {
     console.log(`🏭 [LookupValuesService] Getting plants for: ${userEmail}`);
-    
+
     const userAccess = await getUserAccess(userEmail);
     if (!userAccess) {
       console.error('❌ [LookupValuesService] No user access found from userAccessService');
@@ -407,15 +408,15 @@ async function getAccessiblePlants(userEmail: string) {
     if (resolvedHierarchy !== userAccess.hierarchyString) {
       console.log(`✅ [LookupValuesService] Using resolved alias hierarchy: ${resolvedHierarchy}`);
     }
-    
+
     // ✅ Fetch hierarchy mapping from S3
    //  const hierarchyResponse = await fetch('https://simsstoragereflkpdata.s3.amazonaws.com/hierarchy-mapping.json');
     const hierarchyResponse = hierarchyMapping;
-    
+
     // if (!hierarchyResponse.ok) {
     //   throw new Error(`Failed to fetch hierarchy mapping: ${hierarchyResponse.status}`);
     // }
-    
+
     // const hierarchyMapping = await hierarchyResponse.json();
     console.log('✅ [LookupValuesService] Successfully fetched hierarchy mapping from S3');
     console.log('[DEBUG] Raw division from userAccess:', userAccess.division);
@@ -487,37 +488,63 @@ async function getAccessiblePlants(userEmail: string) {
 export async function getLookupValues(userEmail?: string): Promise<LookupValuesResult> {
   try {
     console.log(`📊 [LookupValuesService] Getting lookup values for: ${userEmail || 'anonymous'}`);
-    
-    // ✅ Fetch lookup data from S3
-    const s3Response = await fetch('https://simsstoragereflkpdata.s3.amazonaws.com/lookupValues.json');
-    
-    if (!s3Response.ok) {
-      throw new Error(`Failed to fetch lookup data: ${s3Response.status}`);
-    }
-    
-    const lookupData = await s3Response.json();
-    console.log('✅ [LookupValuesService] Successfully fetched lookup data from S3');
-    
-    // ✅ FIXED: Get filtered plant locations using hierarchy-mapping.json
+
+    // ✅ Load lookup data locally instead of fetching
+    const lookupData = structuredClone(lookupDataLocal);
+    console.log("✅ [LookupValuesService] Loaded lookup data from local file");
+
+    // ✅ Merge in updated Work Activity Type list
+    lookupData["Work Activity Type"] = [
+      "Air Blowing",
+      "Cleaning",
+      "Clearing Jammed Equipment",
+      "Coiling",
+      "Cutting",
+      "Inspecting/Evaluating Equipment Operation",
+      "Machine Set Up",
+      "Maintenance & Repair Activity",
+      "Manual Material Handling",
+      "Operating a Forklift or Similar",
+      "Operating Typical Production Equipment",
+      "Picking or Packing Goods By Hand",
+      "Purging Machine, Sprue Removal, or Similar Activity",
+      "Participating in a Site Visit, Safety Inspection, or Similar",
+      "Quality Inspections",
+      "Reporting of an Unsafe Condition Without Injury",
+      "Reporting of Unsafe Act Without Injury",
+      "Reporting a Near Miss Without Injury",
+      "Reporting Property Damage Without Injury",
+      "Loading Goods By Hand",
+      "Sitting at Desk",
+      "Standing",
+      "Travel - Driving or Passenger in a Motor Vehicle",
+      "Travel - Other Activities (Excludes Motor Vehicles)",
+      "Using a Grinder",
+      "Using Stairs/Ladder/Platform",
+      "Walking"
+    ];
+
+    // ✅ Apply plant filtering by hierarchy if user provided
     if (userEmail) {
       const accessiblePlants = await getAccessiblePlants(userEmail);
-      lookupData["Plant Location"] = accessiblePlants; // ✅ This replaces the S3 data with filtered data
-      console.log(`✅ [LookupValuesService] Applied plant filtering via hierarchy-mapping.json: ${accessiblePlants.length} plants`);
-      console.log(`📋 [LookupValuesService] Filtered plants: ${accessiblePlants.slice(0, 5).join(', ')}${accessiblePlants.length > 5 ? '...' : ''}`);
+      lookupData["Plant Location"] = accessiblePlants;
+      console.log(
+          `✅ [LookupValuesService] Applied plant filtering: ${accessiblePlants.length} plants`
+      );
     } else {
-      console.log(`⚠️ [LookupValuesService] No user email provided - using unfiltered plant data`);
+      console.log("⚠️ [LookupValuesService] No user email provided - using unfiltered plant data");
     }
-    
+
     return {
       success: true,
-      userEmail: userEmail || '',
+      userEmail: userEmail || "",
       plantLocationCount: lookupData["Plant Location"]?.length || 0,
       plantLocations: lookupData["Plant Location"] || [],
       "Employee Type": lookupData["Employee Type"] || [],
       "Age Range": lookupData["Age Range"] || [],
       "Experience at ITW": lookupData["Experience at ITW"] || [],
       "Experience in Role": lookupData["Experience in Role"] || [],
-      "Plant Location": lookupData["Plant Location"] || [], // ✅ Now filtered by hierarchy-mapping.json
+      "Plant Location": lookupData["Plant Location"] || [],
       "Work Activity Type": lookupData["Work Activity Type"] || [],
       "Injury Type": lookupData["Injury Type"] || [],
       "Injured Body Part": lookupData["Injured Body Part"] || [],
@@ -529,15 +556,13 @@ export async function getLookupValues(userEmail?: string): Promise<LookupValuesR
       "Direct Cause Groups": lookupData["Direct Cause Groups"] || [],
       "Direct Cause Group": lookupData["Direct Cause Group"] || {}
     };
-    
   } catch (error) {
-    console.error('❌ [LookupValuesService] Error getting lookup values:', error);
-    
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    
+    console.error("❌ [LookupValuesService] Error getting lookup values:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+
     return {
       success: false,
-      userEmail: userEmail || '',
+      userEmail: userEmail || "",
       plantLocationCount: 0,
       plantLocations: [],
       "Employee Type": [],
@@ -570,19 +595,19 @@ export async function getCachedLookupValues(
 ): Promise<LookupValuesResult> {
   const cacheKey = userEmail || 'ANONYMOUS';
   const cached = lookupValuesCache.get(cacheKey);
-  
+
   if (cached && cached.success && (Date.now() - (cached as any).timestamp) < CACHE_DURATION) {
     console.log('🚀 [LookupValuesService] Using cached data');
     return cached;
   }
-  
+
   const freshData = await getLookupValues(userEmail);
   if (freshData.success) {
     (freshData as any).timestamp = Date.now();
     lookupValuesCache.set(cacheKey, freshData);
     console.log('💾 [LookupValuesService] Cached fresh data');
   }
-  
+
   return freshData;
 }
 

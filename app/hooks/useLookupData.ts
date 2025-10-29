@@ -12,7 +12,7 @@ export type ReferenceDataMap = {
   ageRanges: ReferenceDataItem[];
   tenureRanges: ReferenceDataItem[];
   experienceLevels: ReferenceDataItem[];
-  locationTypes: ReferenceDataItem[]; // ✅ This will now be filtered by hierarchy
+  locationTypes: ReferenceDataItem[];
   activityTypes: ReferenceDataItem[];
   injuryTypes: ReferenceDataItem[];
   injuredBodyParts: ReferenceDataItem[];
