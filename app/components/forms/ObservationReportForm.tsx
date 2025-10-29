@@ -166,6 +166,7 @@ export default function ObservationReportForm({
       try {
         console.log("Fetching observation data for ID:", submissionIdFromUrl);
 
+        const client = await getDataClient();
         const response = await client.models.Submission.list({
           filter: {
             or: [
@@ -173,7 +174,7 @@ export default function ObservationReportForm({
               { id: { eq: submissionIdFromUrl } }
             ]
           }
-        });
+        }, { authMode: 'userPool' });
 
         const record = response.data?.[0];
 
@@ -204,8 +205,9 @@ export default function ObservationReportForm({
             incidentDescription: record.incidentDescription || '',
             obsCorrectiveAction: record.obsCorrectiveAction || '',
             documents: Array.isArray(record.documents)
-              ? record.documents.filter((doc): doc is Document => doc !== null)
-              : [],
+                ? (record.documents as unknown[])
+                    .filter((doc): doc is Document => !!doc)
+                : [],
             status: record.status || 'Draft',
             createdAt: record.createdAt || '',
             updatedAt: record.updatedAt || '',
