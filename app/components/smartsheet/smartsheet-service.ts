@@ -2,10 +2,15 @@
 type ColumnMeta = { id: number; type: string };
 const COLUMN_CACHE: Record<string, Record<string, ColumnMeta>> = {};
 
-/** Each plant or location sheet id */
-export const SHEET_IDS: Record<string, string> = {
-    DELTAR: "2662923852795780",
-    DRAWFORM: "6406107976126340",
+export const SHEET_IDS: Record<string, { injury: string; observation: string }> = {
+    DELTAR: {
+        injury: "2662923852795780",
+        observation: "5583906473284740",
+    },
+    DRAWFORM: {
+        injury: "6406107976126340",
+        observation: "8059317291823940",
+    },
 };
 
 /** Location → Division mapping */
@@ -17,6 +22,24 @@ export const LOCATION_TO_DIVISION: Record<string, string> = {
     "FRANKFORT": "DELTAR",
     "FRANKFORT, KY": "DELTAR",
 };
+
+function getSheetIdByDivisionAndType(division?: string, recordType: "injury" | "observation" = "injury"): string {
+    if (!division) {
+        console.warn("⚠️ No division provided; defaulting to DELTAR injury sheet");
+        return SHEET_IDS.DELTAR[recordType];
+    }
+
+    const key = division.trim().toUpperCase();
+    const sheets = SHEET_IDS[key];
+
+    if (!sheets) {
+        console.warn(`⚠️ Unknown division "${division}", defaulting to DELTAR ${recordType} sheet`);
+        return SHEET_IDS.DELTAR[recordType];
+    }
+
+    return sheets[recordType];
+}
+
 
 function getDivisionByLocation(location: string): string {
     const locKey = location?.trim().toUpperCase();
@@ -66,7 +89,7 @@ async function getSmartsheetColumnMap(sheetId: string): Promise<Record<string, C
 /** Send a new injury record to Smartsheet */
 export async function sendInjuryToSmartsheet(formData: any) {
     const division = getDivisionByLocation(formData.locationOnSite);
-    const sheetId = getSheetIdByDivision(division);
+    const sheetId = getSheetIdByDivisionAndType(division, 'injury');
     const columns = await getSmartsheetColumnMap(sheetId);
     const cells: any[] = [];
 
@@ -161,5 +184,88 @@ export async function sendInjuryToSmartsheet(formData: any) {
 
     const result = await response.json();
     console.log("🟢 Smartsheet sync successful:", result);
+    return result;
+}
+
+/** Send a new observation record to Smartsheet */
+export async function sendObservationToSmartsheet(formData: any) {
+    const division = getDivisionByLocation(formData.locationOnSite);
+    const sheetId = getSheetIdByDivisionAndType(division, 'observation');
+    const columns = await getSmartsheetColumnMap(sheetId);
+    const cells: any[] = [];
+
+    const pushCell = (title: string, value?: any) => {
+        if (value === undefined || value === null || value === "") return;
+        const col = columns[title];
+        if (!col) {
+            console.warn(`⚠️ No column found for "${title}"`);
+            return;
+        }
+
+        let normalized = value;
+
+        switch (col.type) {
+            case "DATE":
+                if (typeof value === "string") normalized = value.slice(0, 10);
+                if (value instanceof Date) normalized = value.toISOString().slice(0, 10);
+                break;
+            case "CHECKBOX":
+                normalized = value === true || value === "Yes" ? true : false;
+                break;
+            case "PICKLIST":
+                normalized = String(value).trim();
+                break;
+            case "TEXT_NUMBER":
+                if (Array.isArray(value)) normalized = value.join(", ");
+                if (typeof value === "object") normalized = JSON.stringify(value);
+                normalized = String(normalized);
+                break;
+            default:
+                normalized = String(value);
+                break;
+        }
+
+        cells.push({ columnId: col.id, value: normalized });
+    };
+
+    // --- Map Observation form fields ---
+    pushCell("First Name", formData.firstName);
+    pushCell("Last Name", formData.lastName);
+    pushCell("Employee ID", formData.employeeId);
+    pushCell("Division", formData.division);
+    pushCell("Platform", formData.platform);
+    pushCell("LOCATION", formData.locationOnSite || formData.location);
+    pushCell("Date of Incident", formData.dateOfIncident);
+    pushCell("Activity Type", formData.activityType);
+    pushCell("Type of Concern", formData.obsTypeOfConcern);
+    pushCell("Priority Type", formData.obsPriorityType);
+    pushCell("Where Did This Occur", formData.whereDidThisOccur);
+    pushCell("Work Area Description", formData.workAreaDescription);
+    pushCell("Incident Description", formData.incidentDescription);
+    pushCell("Corrective Action", formData.obsCorrectiveAction);
+    pushCell("Submission Type", "Observation");
+    pushCell("Record Type", "Observation Report");
+    pushCell("Status", formData.status || "Draft");
+    pushCell("Created At", new Date().toISOString().slice(0, 10));
+    pushCell("Created By", formData.createdByName);
+
+    console.log("📦 [Observation] Sending cells:", JSON.stringify(cells, null, 2));
+
+    const response = await fetch("/api/smartsheet/add-row", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            sheetId,
+            rows: [{ toTop: true, cells }],
+        }),
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Smartsheet API failed: ${errorText}`);
+    }
+
+    const result = await response.json();
+    console.log("🟢 [Observation] Smartsheet sync successful:", result);
     return result;
 }

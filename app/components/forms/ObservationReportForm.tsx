@@ -25,6 +25,7 @@ import StatusChoiceModal from "@/app/components/modals/StatusChoiceModal";
 //import { getUserDataAccess } from '@/app/utils/dataAccessControl';
 import { callAppSync } from '@/lib/utils/appSync';
 import { initAmplify } from '@/app/amplify-init';
+import {sendInjuryToSmartsheet, sendObservationToSmartsheet} from "@/app/components/smartsheet/smartsheet-service";
 initAmplify();
 let dataClient: any = null;
 async function getDataClient() {
@@ -399,6 +400,13 @@ export default function ObservationReportForm({
         success: true,
         reportId: newSubmissionId,
       });
+      try {
+        console.log('[Smartsheet] formData', formData);
+        await sendObservationToSmartsheet(formData);
+        console.log('✅ Successfully synced to Smartsheet.');
+      } catch (err) {
+        console.error('⚠️ Smartsheet sync failed:', err);
+      }
 
       setHasFormChanges(false);
       setShowSuccessModal(true);
