@@ -51,24 +51,6 @@ function getDivisionByLocation(location: string): string {
     return division;
 }
 
-
-function getSheetIdByDivision(division?: string): string {
-    if (!division) {
-        console.warn("⚠️ No division provided; defaulting to DELTAR");
-        return SHEET_IDS.DELTAR;
-    }
-
-    const key = division.trim().toUpperCase();
-    const sheetId = SHEET_IDS[key];
-
-    if (!sheetId) {
-        console.warn(`⚠️ Unknown division "${division}", defaulting to DELTAR`);
-        return SHEET_IDS.DELTAR;
-    }
-
-    return sheetId;
-}
-
 /** Fetch live column IDs from our API (server-side proxy) */
 async function getSmartsheetColumnMap(sheetId: string): Promise<Record<string, ColumnMeta>> {
     if (COLUMN_CACHE[sheetId]) return COLUMN_CACHE[sheetId];
