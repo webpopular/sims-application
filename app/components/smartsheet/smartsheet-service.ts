@@ -5,11 +5,11 @@ const COLUMN_CACHE: Record<string, Record<string, ColumnMeta>> = {};
 export const SHEET_IDS: Record<string, { injury: string; observation: string }> = {
     DELTAR: {
         injury: "2662923852795780",
-        observation: "5583906473284740",
+        observation: "6875408449359748",
     },
     DRAWFORM: {
         injury: "6406107976126340",
-        observation: "8059317291823940",
+        observation: "2794957589925764",
     },
 };
 
